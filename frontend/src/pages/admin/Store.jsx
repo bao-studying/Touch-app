@@ -1,0 +1,79 @@
+import { useState } from "react";
+import { Check, Package, Wrench } from "lucide-react";
+import api from "../../api/axios";
+import { useBusiness } from "../../context/BusinessContext";
+
+const PLANS = [
+  { id: "free", name: "Free", price: "0đ", desc: "Trang giới thiệu cơ bản, có gắn thương hiệu O2O Brand.", features: ["1 Landing Page", "Social Links cơ bản", "Có quảng cáo/branding"] },
+  { id: "level1", name: "Level 1", price: "99.000đ/tháng", desc: "Bắt đầu thu thập dữ liệu khách hàng.", features: ["Mọi tính năng Free", "Loyalty Lead Capture", "CRM cơ bản + xuất CSV"] },
+  { id: "level2", name: "Level 2", price: "199.000đ/tháng", desc: "Chủ động quản lý danh tiếng thương hiệu.", features: ["Mọi tính năng Level 1", "Smart Review (gating thông minh)", "Animation Picker (Marquee/Orbit)"] },
+  { id: "level3", name: "Level 3", price: "399.000đ/tháng", desc: "Dành cho chuỗi nhiều chi nhánh.", features: ["Mọi tính năng Level 2", "Quản lý đa chi nhánh", "Báo cáo tổng hợp toàn hệ thống"] },
+];
+
+export default function Store() {
+  const { business, updateBusinessLocal } = useBusiness();
+  const [saving, setSaving] = useState(false);
+
+  const handleSelectPlan = async (planId) => {
+    setSaving(true);
+    try {
+      const res = await api.put(`/business/${business._id}`, { plan: planId });
+      updateBusinessLocal(res.data);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 py-5 md:px-8 md:py-8 space-y-6">
+      <div>
+        <h1 className="font-display text-2xl text-espresso-950">Gói dịch vụ</h1>
+        <p className="text-sm text-espresso-700/60">Nâng cấp để mở khóa Smart Review, CRM và quản lý đa chi nhánh.</p>
+      </div>
+
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {PLANS.map((plan) => {
+          const active = business?.plan === plan.id;
+          return (
+            <div key={plan.id} className={`rounded-2xl p-5 flex flex-col shadow-sm ring-1 ${active ? "bg-espresso-950 text-cream-50 ring-espresso-950" : "bg-white ring-espresso-900/5"}`}>
+              <p className="font-display text-lg">{plan.name}</p>
+              <p className={`text-xl font-semibold mt-1 ${active ? "text-amber-400" : "text-espresso-900"}`}>{plan.price}</p>
+              <p className={`text-xs mt-2 ${active ? "text-cream-100/70" : "text-espresso-700/60"}`}>{plan.desc}</p>
+              <ul className="mt-4 space-y-1.5 flex-1">
+                {plan.features.map((f) => (
+                  <li key={f} className={`flex items-start gap-1.5 text-xs ${active ? "text-cream-100/85" : "text-espresso-700/75"}`}>
+                    <Check size={13} className={`mt-0.5 shrink-0 ${active ? "text-amber-400" : "text-sage-500"}`} /> {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                disabled={active || saving}
+                onClick={() => handleSelectPlan(plan.id)}
+                className={`mt-4 rounded-xl py-2 text-sm font-medium ${
+                  active ? "bg-cream-50/10 text-cream-50 cursor-default" : "bg-espresso-800 text-cream-50"
+                }`}
+              >
+                {active ? "Đang sử dụng" : "Chọn gói này"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div className="rounded-2xl bg-white ring-1 ring-espresso-900/5 p-5 shadow-sm">
+          <Package className="text-clay-500 mb-2" size={22} />
+          <p className="font-medium text-espresso-900 mb-1">Bán kèm phần cứng</p>
+          <p className="text-xs text-espresso-700/60 mb-3">Mô hình decor gắn sẵn chip NFC (NTAG213) + mã QR, đã lập trình sẵn để chạm là mở trang.</p>
+          <p className="text-sm font-semibold text-espresso-900">Từ 149.000đ / vật phẩm</p>
+        </div>
+        <div className="rounded-2xl bg-white ring-1 ring-espresso-900/5 p-5 shadow-sm">
+          <Wrench className="text-clay-500 mb-2" size={22} />
+          <p className="font-medium text-espresso-900 mb-1">Phí dịch vụ thiết kế (Setup Fee)</p>
+          <p className="text-xs text-espresso-700/60 mb-3">Đội ngũ hỗ trợ thiết kế Landing Page, chụp ảnh bìa, viết bio thương hiệu theo phong cách riêng.</p>
+          <p className="text-sm font-semibold text-espresso-900">Liên hệ báo giá</p>
+        </div>
+      </div>
+    </div>
+  );
+}
