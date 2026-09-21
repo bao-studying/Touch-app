@@ -5,6 +5,8 @@ const {
   getMyBusinesses,
   getBusinessById,
   updateBusiness,
+  changePlan,
+  getPlanHistory,
   getPublicBusinessBySlug,
 } = require("../controllers/businessController");
 const { protect } = require("../middleware/auth");
@@ -17,5 +19,7 @@ router.post("/", protect, createBusiness);
 router.get("/mine", protect, getMyBusinesses);
 router.get("/:id", protect, getBusinessById);
 router.put("/:id", protect, updateBusiness);
+router.put("/:id/plan", protect, changePlan);
+router.get("/:id/history", protect, getPlanHistory);
 
 module.exports = router;

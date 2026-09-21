@@ -3,7 +3,9 @@ import { Gift, X, CheckCircle2 } from "lucide-react";
 import api from "../../api/axios";
 
 // Widget góc màn hình mời đăng ký Khách hàng thân thiết. Không chắn tầm nhìn, có thể đóng lại.
-export default function LoyaltyForm({ businessId }) {
+export default function LoyaltyForm({ businessId, offerText, theme }) {
+  const radiusClass = theme?.buttonStyle === "square" ? "rounded-md" : "rounded-xl";
+  const pillRadiusClass = theme?.buttonStyle === "square" ? "rounded-md" : "rounded-full";
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [done, setDone] = useState(false);
@@ -33,10 +35,11 @@ export default function LoyaltyForm({ businessId }) {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full bg-espresso-800 text-cream-50 pl-3 pr-4 py-2.5 shadow-lg shadow-espresso-900/20 text-sm"
+          style={{ backgroundColor: "var(--brand, #4A2E1F)" }}
+          className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 ${pillRadiusClass} text-cream-50 pl-3 pr-4 py-2.5 shadow-lg shadow-espresso-900/20 text-sm`}
         >
           <Gift size={18} className="text-amber-400" />
-          Nhận Voucher 10% — Đăng ký thành viên
+          {offerText || "Nhận Voucher 10% — Đăng ký thành viên"}
         </button>
       )}
 
@@ -57,9 +60,7 @@ export default function LoyaltyForm({ businessId }) {
                   <Gift className="text-amber-500" size={22} />
                   <h3 className="font-display text-lg text-espresso-900">Khách hàng thân thiết</h3>
                 </div>
-                <p className="text-xs text-espresso-700/70 mb-4">
-                  Nhận ngay Voucher 10% và tích điểm cho lần ghé sau.
-                </p>
+                <p className="text-xs text-espresso-700/70 mb-4">{offerText || "Nhận ngay ưu đãi và tích điểm cho lần ghé sau."}</p>
                 <form onSubmit={handleSubmit} className="space-y-3">
                   <input
                     required
@@ -91,7 +92,8 @@ export default function LoyaltyForm({ businessId }) {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium disabled:opacity-60"
+                    style={{ backgroundColor: "var(--brand, #4A2E1F)" }}
+                    className={`w-full ${radiusClass} text-cream-50 py-2.5 text-sm font-medium disabled:opacity-60`}
                   >
                     {submitting ? "Đang gửi..." : "Đăng ký ngay"}
                   </button>

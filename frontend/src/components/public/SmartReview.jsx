@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Star, Send, CheckCircle2 } from "lucide-react";
 import api from "../../api/axios";
 
-// Luồng: 4-5 sao -> gọi API rồi điều hướng ra link công khai (Google Maps/Shopee).
-//        1-3 sao -> hiện form góp ý nội bộ, gửi thẳng về Admin, không điều hướng ra ngoài.
-export default function SmartReview({ businessId }) {
+// Luồng: 4-5 sao -> gọi API rồi điều hướng ra link công khai (Google Maps/Shopee, hoặc thẳng khung
+//        "Viết đánh giá" nếu đã cấu hình Google Place ID). 1-3 sao -> hiện form góp ý nội bộ.
+// Với gói chưa mở Smart Review, backend luôn trả redirectUrl bất kể mấy sao (form đơn giản hơn).
+export default function SmartReview({ businessId, theme }) {
+  const radiusClass = theme?.buttonStyle === "square" ? "rounded-md" : "rounded-xl";
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
@@ -106,7 +108,8 @@ export default function SmartReview({ businessId }) {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium disabled:opacity-60"
+            style={{ backgroundColor: "var(--brand, #4A2E1F)" }}
+            className={`w-full flex items-center justify-center gap-2 ${radiusClass} text-cream-50 py-2.5 text-sm font-medium disabled:opacity-60`}
           >
             <Send size={16} /> {submitting ? "Đang gửi..." : "Gửi góp ý"}
           </button>

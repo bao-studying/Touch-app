@@ -1,5 +1,16 @@
 const Review = require("../models/Review");
 const Business = require("../models/Business");
+const { getPlanLimits } = require("../config/planLimits");
+const { ensureActivePlan } = require("../utils/planGate");
+
+// Ưu tiên đường dẫn "Viết đánh giá" thẳng (cần Google Place ID) — nếu chưa có, fallback về link Maps thường,
+// rồi tới link Shopee. Dùng chung cho cả luồng Smart Review lẫn luồng đơn giản (Free/Level 1).
+const getPublicReviewUrl = (business) => {
+  if (business.googlePlaceId) {
+    return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(business.googlePlaceId)}`;
+  }
+  return business.googleMapsLink || business.shopeeLink || null;
+};
 
 // @desc  Khách gửi đánh giá sao (public, không cần đăng nhập)
 // @route POST /api/reviews/public
@@ -9,13 +20,17 @@ const submitReview = async (req, res) => {
     const { businessId, rating, feedbackText, branch } = req.body;
     const business = await Business.findById(businessId);
     if (!business) return res.status(404).json({ message: "Không tìm thấy doanh nghiệp" });
+    await ensureActivePlan(business);
 
     const numRating = Number(rating);
     if (!numRating || numRating < 1 || numRating > 5) {
       return res.status(400).json({ message: "Số sao không hợp lệ" });
     }
 
-    const channel = numRating >= business.reviewThreshold ? "redirected_public" : "internal";
+    const hasSmartReview = getPlanLimits(business.plan).hasSmartReview;
+    // Free/Level 1: chưa có Smart Review gating — MỌI mức sao đều đi thẳng ra đánh giá công khai
+    // (form đơn giản, không phân luồng nội bộ). Level 2+: giữ nguyên gating theo reviewThreshold.
+    const channel = !hasSmartReview || numRating >= business.reviewThreshold ? "redirected_public" : "internal";
 
     const review = await Review.create({
       business: businessId,
@@ -25,10 +40,9 @@ const submitReview = async (req, res) => {
       branch: branch || "",
     });
 
-    // Trả về nơi cần redirect nếu là review công khai, để frontend điều hướng
     res.status(201).json({
       review,
-      redirectUrl: channel === "redirected_public" ? business.googleMapsLink || business.shopeeLink : null,
+      redirectUrl: channel === "redirected_public" ? getPublicReviewUrl(business) : null,
     });
   } catch (err) {
     res.status(500).json({ message: "Lỗi khi gửi đánh giá", error: err.message });

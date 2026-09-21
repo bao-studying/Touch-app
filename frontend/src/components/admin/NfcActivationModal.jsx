@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { X, Wifi, ChevronRight, CheckCircle2, AlertTriangle } from "lucide-react";
+import { useRef, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
+import { X, Wifi, ChevronRight, CheckCircle2, AlertTriangle, QrCode, Smartphone, Download } from "lucide-react";
 import api from "../../api/axios";
 import { useBusiness } from "../../context/BusinessContext";
 
 const ITEM_TYPES = ["Gấu bông", "Mô hình 3D", "Thẻ gỗ/Acrylic decor", "Sticker để bàn"];
 
-// Quy trình: 1) Chọn loại vật phẩm -> 2) Nhập UID -> 3) Chọn chi nhánh -> 4) Chạm để kích hoạt & khóa chip.
+// Quy trình: 1) Chọn loại vật phẩm -> 2) Nhập UID -> 3) Chọn chi nhánh -> 4) Chạm để kích hoạt (NFC) HOẶC Tạo mã QR.
+// Mã QR hữu ích khi demo/chưa có chip vật lý — vẫn gắn cùng 1 UID nên lượt quét vẫn được đếm như chip thật.
 // Web NFC API (NDEFReader) chỉ chạy trên Chrome for Android qua HTTPS + cần thao tác chạm thật của người dùng.
 export default function NfcActivationModal({ onClose }) {
   const { business } = useBusiness();
@@ -14,46 +16,67 @@ export default function NfcActivationModal({ onClose }) {
   const [uid, setUid] = useState("");
   const [branch, setBranch] = useState(business?.branches?.[0] || "");
   const [scanning, setScanning] = useState(false);
-  const [tag, setTag] = useState(null);
   const [error, setError] = useState("");
   const [nfcUnsupported, setNfcUnsupported] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [qrMode, setQrMode] = useState(false);
+  const qrRef = useRef(null);
 
   const targetUrl = `${window.location.origin}/p/${business?.slug}?tag=${uid}`;
 
-  const handleRegisterAndActivate = async () => {
+  const registerTag = async () => {
+    const res = await api.post("/nfc", { business: business._id, uid, itemType, branch });
+    return res.data;
+  };
+
+  const handleActivateNfc = async () => {
     setError("");
     try {
-      // Bước A: đăng ký UID trong hệ thống (server-side)
-      const res = await api.post("/nfc", { business: business._id, uid, itemType, branch });
-      setTag(res.data);
+      const created = await registerTag();
       setScanning(true);
 
-      // Bước B: ghi thật vào chip qua Web NFC API (chỉ khả dụng trên Chrome Android + HTTPS)
       if ("NDEFReader" in window) {
         try {
           const ndef = new window.NDEFReader();
           await ndef.write({ records: [{ recordType: "url", data: targetUrl }] });
         } catch (nfcErr) {
           setScanning(false);
-          setError(
-            "Không ghi được vào chip: " + (nfcErr.message || "vui lòng chạm điện thoại vào chip và thử lại.")
-          );
+          setError("Không ghi được vào chip: " + (nfcErr.message || "vui lòng chạm điện thoại vào chip và thử lại."));
           return;
         }
       } else {
-        // Fallback khi trình duyệt/thiết bị không hỗ trợ Web NFC (vd: iPhone, hoặc đang test trên desktop)
         setNfcUnsupported(true);
       }
 
-      // Bước C: xác nhận & khóa chip trên server
-      await api.put(`/nfc/${res.data._id}/activate`);
+      await api.put(`/nfc/${created._id}/activate`);
       setScanning(false);
       setSuccess(true);
     } catch (err) {
       setScanning(false);
       setError(err.response?.data?.message || "Có lỗi xảy ra khi kích hoạt chip");
     }
+  };
+
+  const handleGenerateQr = async () => {
+    setError("");
+    try {
+      const created = await registerTag();
+      await api.put(`/nfc/${created._id}/activate`);
+      setQrMode(true);
+      setSuccess(true);
+    } catch (err) {
+      setError(err.response?.data?.message || "Có lỗi xảy ra khi tạo mã QR");
+    }
+  };
+
+  const handleDownloadQr = () => {
+    const canvas = qrRef.current?.querySelector("canvas");
+    if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `qr-${uid || business.slug}.png`;
+    a.click();
   };
 
   return (
@@ -65,7 +88,7 @@ export default function NfcActivationModal({ onClose }) {
 
         {!scanning && !success && (
           <>
-            <h3 className="font-display text-lg text-espresso-950 mb-4">Kích hoạt chip NFC</h3>
+            <h3 className="font-display text-lg text-espresso-950 mb-4">Kích hoạt chip NFC / Tạo mã QR</h3>
 
             {step === 1 && (
               <div className="space-y-3">
@@ -90,7 +113,7 @@ export default function NfcActivationModal({ onClose }) {
 
             {step === 2 && (
               <div className="space-y-3">
-                <label className="text-xs text-espresso-700/60">Mã UID của chip (in trên bao bì chip)</label>
+                <label className="text-xs text-espresso-700/60">Mã UID của chip (in trên bao bì chip, hoặc tự đặt nếu demo QR)</label>
                 <input
                   required
                   value={uid}
@@ -118,7 +141,7 @@ export default function NfcActivationModal({ onClose }) {
                   className="w-full rounded-xl border border-espresso-900/15 px-3 py-2.5 text-sm"
                 />
                 <div className="rounded-xl bg-espresso-900/5 px-3 py-2 text-xs text-espresso-700/70 break-all">
-                  URL sẽ ghi vào chip: <span className="font-medium">{targetUrl}</span>
+                  URL sẽ gắn với chip/QR: <span className="font-medium">{targetUrl}</span>
                 </div>
                 {error && (
                   <p className="text-xs text-clay-500 flex items-center gap-1">
@@ -126,10 +149,16 @@ export default function NfcActivationModal({ onClose }) {
                   </p>
                 )}
                 <button
-                  onClick={handleRegisterAndActivate}
-                  className="w-full flex items-center justify-center gap-1 rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium"
+                  onClick={handleActivateNfc}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium"
                 >
-                  Chạm để kích hoạt
+                  <Smartphone size={16} /> Chạm để kích hoạt (NFC)
+                </button>
+                <button
+                  onClick={handleGenerateQr}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-espresso-900/15 text-espresso-800 py-2.5 text-sm font-medium"
+                >
+                  <QrCode size={16} /> Tạo mã QR (chưa có chip / demo)
                 </button>
               </div>
             )}
@@ -142,9 +171,7 @@ export default function NfcActivationModal({ onClose }) {
               <div className="absolute inset-0 rounded-full bg-sky-400/20 animate-ping" />
               <div className="absolute inset-3 rounded-full bg-sky-400/30 animate-ping [animation-delay:200ms]" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center text-3xl">
-                  ☕
-                </span>
+                <span className="w-16 h-16 rounded-full bg-white shadow-md flex items-center justify-center text-3xl">☕</span>
               </div>
               <Wifi className="absolute -top-1 -right-1 text-sky-500" size={22} />
             </div>
@@ -153,7 +180,7 @@ export default function NfcActivationModal({ onClose }) {
           </div>
         )}
 
-        {success && (
+        {success && !qrMode && (
           <div className="py-6 text-center">
             <CheckCircle2 className="mx-auto mb-2 text-sage-500" size={36} />
             <p className="font-medium text-espresso-900">Kích hoạt thành công!</p>
@@ -165,6 +192,25 @@ export default function NfcActivationModal({ onClose }) {
               </p>
             )}
             <button onClick={onClose} className="mt-4 w-full rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium">
+              Xong
+            </button>
+          </div>
+        )}
+
+        {success && qrMode && (
+          <div className="py-4 text-center">
+            <p className="font-medium text-espresso-900 mb-3">Mã QR đã sẵn sàng</p>
+            <div ref={qrRef} className="inline-block p-3 bg-white rounded-xl ring-1 ring-espresso-900/10 mb-3">
+              <QRCodeCanvas value={targetUrl} size={180} />
+            </div>
+            <p className="text-xs text-espresso-700/60 mb-4">Quét thử bằng điện thoại để kiểm tra, hoặc tải ảnh về in dán tạm ở quán.</p>
+            <button
+              onClick={handleDownloadQr}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium mb-2"
+            >
+              <Download size={16} /> Tải ảnh QR
+            </button>
+            <button onClick={onClose} className="w-full rounded-xl bg-espresso-900/10 text-espresso-700 py-2.5 text-sm font-medium">
               Xong
             </button>
           </div>

@@ -1,24 +1,37 @@
 import { useState } from "react";
-import { Check, Package, Wrench } from "lucide-react";
+import { Check, X, Package, Wrench } from "lucide-react";
 import api from "../../api/axios";
 import { useBusiness } from "../../context/BusinessContext";
+import UnlockToast from "../../components/admin/UnlockToast";
 
 const PLANS = [
-  { id: "free", name: "Free", price: "0đ", desc: "Trang giới thiệu cơ bản, có gắn thương hiệu O2O Brand.", features: ["1 Landing Page", "Social Links cơ bản", "Có quảng cáo/branding"] },
-  { id: "level1", name: "Level 1", price: "99.000đ/tháng", desc: "Bắt đầu thu thập dữ liệu khách hàng.", features: ["Mọi tính năng Free", "Loyalty Lead Capture", "CRM cơ bản + xuất CSV"] },
-  { id: "level2", name: "Level 2", price: "199.000đ/tháng", desc: "Chủ động quản lý danh tiếng thương hiệu.", features: ["Mọi tính năng Level 1", "Smart Review (gating thông minh)", "Animation Picker (Marquee/Orbit)"] },
-  { id: "level3", name: "Level 3", price: "399.000đ/tháng", desc: "Dành cho chuỗi nhiều chi nhánh.", features: ["Mọi tính năng Level 2", "Quản lý đa chi nhánh", "Báo cáo tổng hợp toàn hệ thống"] },
+  { id: "free", name: "Free", price: "0đ", desc: "Trang giới thiệu cơ bản, có gắn thương hiệu O2O Brand.", features: ["Landing Page cơ bản", "Tối đa 2 Social Links", "Có gắn thương hiệu O2O"] },
+  { id: "level1", name: "Level 1", price: "99.000đ/tháng", desc: "Bắt đầu thu thập dữ liệu khách hàng.", features: ["Mọi tính năng Free", "Không giới hạn Social Links", "Loyalty Lead Capture", "CRM + Xuất CSV"] },
+  { id: "level2", name: "Level 2", price: "199.000đ/tháng", desc: "Chủ động quản lý danh tiếng thương hiệu.", features: ["Mọi tính năng Level 1", "Smart Review (gating thông minh)", "Animation Marquee/Orbit"] },
+  { id: "level3", name: "Level 3", price: "399.000đ/tháng", desc: "Dành cho chuỗi nhiều chi nhánh.", features: ["Mọi tính năng Level 2", "Quản lý đa chi nhánh"] },
+];
+
+const COMPARE_ROWS = [
+  { label: "Số Social Links", free: "2", level1: "Không giới hạn", level2: "Không giới hạn", level3: "Không giới hạn" },
+  { label: "Hiệu ứng Marquee/Orbit", free: false, level1: false, level2: true, level3: true },
+  { label: "Loyalty Lead Capture", free: false, level1: true, level2: true, level3: true },
+  { label: "CRM + Xuất CSV", free: false, level1: true, level2: true, level3: true },
+  { label: "Smart Review (gating)", free: false, level1: false, level2: true, level3: true },
+  { label: "Đa chi nhánh", free: false, level1: false, level2: false, level3: true },
+  { label: "Không gắn thương hiệu O2O", free: false, level1: true, level2: true, level3: true },
 ];
 
 export default function Store() {
   const { business, updateBusinessLocal } = useBusiness();
   const [saving, setSaving] = useState(false);
+  const [unlocked, setUnlocked] = useState(null);
 
   const handleSelectPlan = async (planId) => {
     setSaving(true);
     try {
-      const res = await api.put(`/business/${business._id}`, { plan: planId });
-      updateBusinessLocal(res.data);
+      const res = await api.put(`/business/${business._id}/plan`, { plan: planId });
+      updateBusinessLocal(res.data.business);
+      if (res.data.unlockedFeatures?.length > 0) setUnlocked(res.data.unlockedFeatures);
     } finally {
       setSaving(false);
     }
@@ -29,6 +42,9 @@ export default function Store() {
       <div>
         <h1 className="font-display text-2xl text-espresso-950">Gói dịch vụ</h1>
         <p className="text-sm text-espresso-700/60">Nâng cấp để mở khóa Smart Review, CRM và quản lý đa chi nhánh.</p>
+        <p className="text-[11px] text-espresso-700/40 mt-1">
+          Đây là bản demo đổi gói trực tiếp — luồng thanh toán SePay sẽ nối vào bước "Chọn gói này" ở vòng sau.
+        </p>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -60,6 +76,42 @@ export default function Store() {
         })}
       </div>
 
+      {/* Bảng so sánh tính năng */}
+      <div className="rounded-2xl bg-white ring-1 ring-espresso-900/5 shadow-sm overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
+          <thead>
+            <tr className="border-b border-espresso-900/8">
+              <th className="text-left px-4 py-3 text-espresso-700/60 font-medium text-xs">Tính năng</th>
+              {PLANS.map((p) => (
+                <th key={p.id} className="text-center px-4 py-3 text-espresso-900 font-medium text-xs">
+                  {p.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARE_ROWS.map((row) => (
+              <tr key={row.label} className="border-b border-espresso-900/5 last:border-0">
+                <td className="px-4 py-2.5 text-espresso-800 text-xs">{row.label}</td>
+                {["free", "level1", "level2", "level3"].map((planId) => (
+                  <td key={planId} className="text-center px-4 py-2.5">
+                    {typeof row[planId] === "boolean" ? (
+                      row[planId] ? (
+                        <Check size={15} className="mx-auto text-sage-500" />
+                      ) : (
+                        <X size={15} className="mx-auto text-espresso-900/20" />
+                      )
+                    ) : (
+                      <span className="text-xs text-espresso-700/80">{row[planId]}</span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-4">
         <div className="rounded-2xl bg-white ring-1 ring-espresso-900/5 p-5 shadow-sm">
           <Package className="text-clay-500 mb-2" size={22} />
@@ -74,6 +126,8 @@ export default function Store() {
           <p className="text-sm font-semibold text-espresso-900">Liên hệ báo giá</p>
         </div>
       </div>
+
+      {unlocked && <UnlockToast features={unlocked} onDone={() => setUnlocked(null)} />}
     </div>
   );
 }

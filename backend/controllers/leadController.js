@@ -1,7 +1,9 @@
 const Lead = require("../models/Lead");
 const Business = require("../models/Business");
+const { getPlanLimits } = require("../config/planLimits");
+const { ensureActivePlan } = require("../utils/planGate");
 
-// @desc  Khách đăng ký Khách hàng thân thiết (public)
+// @desc  Khách đăng ký Khách hàng thân thiết (public) — CHẶN nếu gói chưa mở Loyalty (Free)
 // @route POST /api/leads/public
 const submitLead = async (req, res) => {
   try {
@@ -11,6 +13,11 @@ const submitLead = async (req, res) => {
     }
     const business = await Business.findById(businessId);
     if (!business) return res.status(404).json({ message: "Không tìm thấy doanh nghiệp" });
+    await ensureActivePlan(business);
+
+    if (!getPlanLimits(business.plan).hasLoyalty) {
+      return res.status(403).json({ message: "Tính năng Khách hàng thân thiết chưa được kích hoạt" });
+    }
 
     const lead = await Lead.create({
       business: businessId,
@@ -41,13 +48,17 @@ const getLeadsByBusiness = async (req, res) => {
   res.json(leads);
 };
 
-// @desc  Xuất CSV danh sách khách hàng
+// @desc  Xuất CSV danh sách khách hàng — CHẶN nếu gói chưa mở CRM Export (Free)
 // @route GET /api/leads/business/:businessId/export
 const exportLeadsCsv = async (req, res) => {
   const business = await Business.findById(req.params.businessId);
   if (!business) return res.status(404).json({ message: "Không tìm thấy doanh nghiệp" });
   if (business.owner.toString() !== req.admin._id.toString()) {
     return res.status(403).json({ message: "Không có quyền truy cập" });
+  }
+  await ensureActivePlan(business);
+  if (!getPlanLimits(business.plan).hasCrmExport) {
+    return res.status(403).json({ message: "Xuất CSV chưa được mở ở gói hiện tại. Nâng cấp lên Level 1 trở lên." });
   }
 
   const leads = await Lead.find({ business: req.params.businessId }).sort({ createdAt: -1 });

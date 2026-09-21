@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Home, Settings2, Users, Store, Nfc, LogOut, Coffee, AlertTriangle } from "lucide-react";
+import { Home, Settings2, Users, Store, Nfc, LogOut, Coffee, AlertTriangle, UserCircle, Clock } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useBusiness } from "../../context/BusinessContext";
 import api from "../../api/axios";
@@ -43,6 +43,14 @@ export default function AdminLayout() {
     return <div className="min-h-screen flex items-center justify-center bg-cream-50 text-espresso-700">Đang tải...</div>;
   }
 
+  // Banner nhắc gia hạn khi còn ≤ 3 ngày là hết hạn gói trả phí
+  let daysLeft = null;
+  if (business?.planExpiresAt) {
+    const diff = new Date(business.planExpiresAt) - new Date();
+    daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+  const showExpiryWarning = daysLeft !== null && daysLeft >= 0 && daysLeft <= 3;
+
   return (
     <div className="min-h-screen bg-cream-100 md:flex">
       {/* Sidebar desktop */}
@@ -84,6 +92,16 @@ export default function AdminLayout() {
           >
             <Nfc size={18} /> Kích hoạt NFC
           </NavLink>
+          <NavLink
+            to="/admin/account"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+                isActive ? "bg-cream-50/10 text-cream-50" : "text-cream-100/60 hover:bg-cream-50/5"
+              }`
+            }
+          >
+            <UserCircle size={18} /> Cài đặt tài khoản
+          </NavLink>
         </nav>
 
         <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-cream-100/50 hover:bg-cream-50/5">
@@ -98,6 +116,15 @@ export default function AdminLayout() {
             <AlertTriangle size={16} className="shrink-0" />
             Có {newFeedbackCount} góp ý nội bộ 1-3 sao mới cần xử lý.
           </div>
+        )}
+        {showExpiryWarning && (
+          <button
+            onClick={() => navigate("/admin/store")}
+            className="w-full bg-amber-400/15 border-b border-amber-400/25 px-5 py-2.5 flex items-center gap-2 text-amber-700 text-sm text-left"
+          >
+            <Clock size={16} className="shrink-0" />
+            Gói {business.plan.toUpperCase()} còn {daysLeft} ngày là hết hạn — bấm để gia hạn.
+          </button>
         )}
         <Outlet />
       </div>

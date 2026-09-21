@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const connectDB = require("./config/db");
@@ -14,6 +15,9 @@ app.use(
 );
 app.use(express.json());
 
+// Phục vụ ảnh đã upload (logo/cover/mascot) — lưu local cho demo, xem ghi chú trong uploadController.js
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 app.get("/", (req, res) => {
   res.json({ message: "O2O Brand Promotion API đang chạy 🚀" });
 });
@@ -24,6 +28,7 @@ app.use("/api/links", require("./routes/linkRoutes"));
 app.use("/api/reviews", require("./routes/reviewRoutes"));
 app.use("/api/leads", require("./routes/leadRoutes"));
 app.use("/api/nfc", require("./routes/nfcRoutes"));
+app.use("/api/uploads", require("./routes/uploadRoutes"));
 
 // 404 handler
 app.use((req, res) => {

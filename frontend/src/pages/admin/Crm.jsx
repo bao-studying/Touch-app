@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Phone, MessageCircle, Download, Search } from "lucide-react";
+import { Phone, MessageCircle, Download, Search, Users } from "lucide-react";
 import api from "../../api/axios";
 import { useBusiness } from "../../context/BusinessContext";
+import { getPlanLimits } from "../../utils/planLimits";
+import PlanLockBadge from "../../components/admin/PlanLockBadge";
 
 export default function Crm() {
   const { business } = useBusiness();
@@ -23,7 +25,10 @@ export default function Crm() {
     return leads.filter((l) => l.name?.toLowerCase().includes(q) || l.phone?.includes(q));
   }, [leads, query]);
 
+  const limits = getPlanLimits(business?.plan);
+
   const handleExport = async () => {
+    if (!limits.hasCrmExport) return;
     const token = localStorage.getItem("o2o_token");
     const base = api.defaults.baseURL;
     const res = await fetch(`${base}/leads/business/${business._id}/export`, {
@@ -38,6 +43,20 @@ export default function Crm() {
     window.URL.revokeObjectURL(url);
   };
 
+  const ExportButton = ({ full }) =>
+    limits.hasCrmExport ? (
+      <button
+        onClick={handleExport}
+        className={`${full ? "w-full" : "hidden md:flex"} items-center justify-center gap-1.5 rounded-xl bg-espresso-800 text-cream-50 px-3.5 py-2.5 text-sm font-medium`}
+      >
+        <Download size={16} /> Xuất Excel/CSV
+      </button>
+    ) : (
+      <div className={`${full ? "w-full" : "hidden md:flex"} items-center justify-center gap-2 rounded-xl bg-espresso-900/5 px-3.5 py-2.5 text-sm text-espresso-700/50`}>
+        Xuất CSV <PlanLockBadge requiredPlan="level1" />
+      </div>
+    );
+
   if (loading) return <div className="p-6 text-espresso-700 text-sm">Đang tải dữ liệu...</div>;
 
   return (
@@ -47,10 +66,19 @@ export default function Crm() {
           <h1 className="font-display text-2xl text-espresso-950">CRM — Khách hàng thân thiết</h1>
           <p className="text-sm text-espresso-700/60">{leads.length} khách hàng đã đăng ký</p>
         </div>
-        <button onClick={handleExport} className="hidden md:flex items-center gap-1.5 rounded-xl bg-espresso-800 text-cream-50 px-3.5 py-2 text-sm font-medium">
-          <Download size={16} /> Xuất Excel/CSV
-        </button>
+        <ExportButton />
       </div>
+
+      {!limits.hasLoyalty && (
+        <div className="rounded-2xl bg-amber-400/10 ring-1 ring-amber-400/25 p-4 flex items-start gap-3">
+          <Users size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-espresso-900 font-medium">Widget thu thập khách hàng chưa hiển thị</p>
+            <p className="text-xs text-espresso-700/60 mt-0.5">Nâng cấp lên Level 1 để bắt đầu thu thập khách hàng thân thiết trên Landing Page.</p>
+          </div>
+          <PlanLockBadge requiredPlan="level1" />
+        </div>
+      )}
 
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-espresso-700/40" />
@@ -91,9 +119,7 @@ export default function Crm() {
           </div>
         ))}
         {filtered.length === 0 && <p className="text-center text-sm text-espresso-700/50 py-8">Chưa có khách hàng nào.</p>}
-        <button onClick={handleExport} className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-espresso-800 text-cream-50 py-2.5 text-sm font-medium">
-          <Download size={16} /> Xuất Excel/CSV
-        </button>
+        <ExportButton full />
       </div>
 
       {/* Desktop: table view */}

@@ -12,6 +12,7 @@ import Setup from "./pages/admin/Setup";
 import Nfc from "./pages/admin/Nfc";
 import Crm from "./pages/admin/Crm";
 import Store from "./pages/admin/Store";
+import AccountSettings from "./pages/admin/AccountSettings";
 
 function RequireAuth({ children }) {
   const { admin, loading } = useAuth();
@@ -32,6 +33,7 @@ function AdminArea() {
             <Route path="nfc" element={<Nfc />} />
             <Route path="crm" element={<Crm />} />
             <Route path="store" element={<Store />} />
+            <Route path="account" element={<AccountSettings />} />
           </Route>
         </Routes>
       </BusinessProvider>

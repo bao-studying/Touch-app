@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Users, Star, ScanLine, AlertTriangle, CheckCircle2 } from "lucide-react";
 import api from "../../api/axios";
+import { useAuth } from "../../context/AuthContext";
 import { useBusiness } from "../../context/BusinessContext";
 
 export default function Home() {
+  const { admin } = useAuth();
   const { business } = useBusiness();
   const [reviews, setReviews] = useState([]);
   const [leads, setLeads] = useState([]);
@@ -56,9 +59,19 @@ export default function Home() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-5 md:px-8 md:py-8 space-y-6">
-      <div>
-        <h1 className="font-display text-2xl text-espresso-950">Tổng quan</h1>
-        <p className="text-sm text-espresso-700/60">{business?.name}</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="font-display text-2xl text-espresso-950">Tổng quan</h1>
+          <p className="text-sm text-espresso-700/60">{business?.name}</p>
+        </div>
+        {/* Avatar tài khoản — chỉ hiện trên mobile (desktop đã có mục trong sidebar) */}
+        <Link
+          to="/admin/account"
+          className="md:hidden w-10 h-10 rounded-full bg-espresso-800 text-cream-50 flex items-center justify-center text-sm font-medium shrink-0"
+          aria-label="Cài đặt tài khoản"
+        >
+          {admin?.name?.charAt(0)?.toUpperCase() || "?"}
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

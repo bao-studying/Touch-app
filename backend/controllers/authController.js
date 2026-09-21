@@ -56,4 +56,30 @@ const getMe = async (req, res) => {
   res.json(req.admin);
 };
 
-module.exports = { registerAdmin, loginAdmin, getMe };
+// @desc  Cập nhật tên hiển thị (trang Cài đặt tài khoản)
+// @route PUT /api/auth/me
+const updateProfile = async (req, res) => {
+  const admin = await Admin.findById(req.admin._id);
+  if (req.body.name) admin.name = req.body.name;
+  await admin.save();
+  res.json({ _id: admin._id, name: admin.name, email: admin.email });
+};
+
+// @desc  Đổi mật khẩu (trang Cài đặt tài khoản)
+// @route PUT /api/auth/me/password
+const updatePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ message: "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới (tối thiểu 6 ký tự)" });
+  }
+
+  const admin = await Admin.findById(req.admin._id);
+  const matches = await admin.matchPassword(currentPassword);
+  if (!matches) return res.status(401).json({ message: "Mật khẩu hiện tại không đúng" });
+
+  admin.password = newPassword; // pre('save') hook trong model sẽ tự hash lại
+  await admin.save();
+  res.json({ message: "Đã đổi mật khẩu thành công" });
+};
+
+module.exports = { registerAdmin, loginAdmin, getMe, updateProfile, updatePassword };

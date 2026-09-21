@@ -1,27 +1,30 @@
-import {
-  Facebook,
-  Instagram,
-  Youtube,
-  Mail,
-  Wifi,
-  Phone,
-  Globe,
-  ShoppingBag,
-  MessageCircle,
-  Music2,
-} from "lucide-react";
+import { SiFacebook, SiTiktok, SiShopee, SiZalo, SiInstagram, SiYoutube, SiGmail } from "react-icons/si";
+import { Wifi, Phone, Globe } from "lucide-react";
 
+// Icon THẬT của từng nền tảng (Simple Icons qua react-icons) thay vì icon chung chung.
+// Wifi/Hotline/Website không phải thương hiệu nên vẫn dùng icon Lucide trung tính.
 const PLATFORM_ICON = {
-  facebook: Facebook,
-  tiktok: Music2, // dùng note nhạc thay cho logo TikTok (tránh dùng IP)
-  shopee: ShoppingBag,
-  zalo: MessageCircle,
+  facebook: SiFacebook,
+  tiktok: SiTiktok,
+  shopee: SiShopee,
+  zalo: SiZalo,
   website: Globe,
   wifi: Wifi,
   hotline: Phone,
-  instagram: Instagram,
-  youtube: Youtube,
-  email: Mail,
+  instagram: SiInstagram,
+  youtube: SiYoutube,
+  email: SiGmail,
+};
+
+// Màu thương hiệu thật cho từng icon (giữ nền trắng đồng nhất, chỉ đổi màu icon)
+const PLATFORM_COLOR = {
+  facebook: "#1877F2",
+  tiktok: "#000000",
+  shopee: "#EE4D2D",
+  zalo: "#0068FF",
+  instagram: "#E4405F",
+  youtube: "#FF0000",
+  email: "#EA4335",
 };
 
 const PLATFORM_LABEL = {
@@ -39,6 +42,7 @@ const PLATFORM_LABEL = {
 
 function LinkIcon({ link, size = 22 }) {
   const Icon = PLATFORM_ICON[link.platform] || Globe;
+  const color = PLATFORM_COLOR[link.platform] || "#4A2E1F";
   return (
     <a
       href={link.url}
@@ -47,8 +51,8 @@ function LinkIcon({ link, size = 22 }) {
       className="flex flex-col items-center gap-1.5 shrink-0"
       aria-label={link.label || PLATFORM_LABEL[link.platform]}
     >
-      <span className="flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-sm ring-1 ring-espresso-900/10 text-espresso-800">
-        <Icon size={size} strokeWidth={1.8} />
+      <span className="flex items-center justify-center w-12 h-12 rounded-full bg-white shadow-sm ring-1 ring-espresso-900/10">
+        <Icon size={size} color={color} />
       </span>
       <span className="text-[11px] text-espresso-700/80 max-w-[64px] truncate text-center">
         {link.label || PLATFORM_LABEL[link.platform]}
