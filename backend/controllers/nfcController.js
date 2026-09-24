@@ -43,8 +43,9 @@ const registerTag = async (req, res) => {
   res.status(201).json(tag);
 };
 
-// @desc  Bước 4 Guided Workflow: xác nhận đã ghi & khóa chip thành công (Web NFC API chạy ở frontend)
+// @desc  Bước 4 Guided Workflow: xác nhận đã ghi & khóa chip thành công (kèm phương thức: nfc thật hoặc qr demo)
 // @route PUT /api/nfc/:id/activate
+// body: { activationMethod?: 'nfc' | 'qr' }
 const activateTag = async (req, res) => {
   const tag = await NfcTag.findById(req.params.id);
   if (!tag) return res.status(404).json({ message: "Không tìm thấy chip" });
@@ -54,8 +55,23 @@ const activateTag = async (req, res) => {
 
   tag.locked = true;
   tag.activatedAt = new Date();
+  if (req.body.activationMethod) tag.activationMethod = req.body.activationMethod;
   await tag.save();
 
+  res.json(tag);
+};
+
+// @desc  Cập nhật ghi chú vị trí đặt thật (dùng trong popup chi tiết chip)
+// @route PUT /api/nfc/:id/note
+const updatePlacementNote = async (req, res) => {
+  const tag = await NfcTag.findById(req.params.id);
+  if (!tag) return res.status(404).json({ message: "Không tìm thấy chip" });
+
+  const { error, status } = await assertOwnership(tag.business, req.admin._id);
+  if (error) return res.status(status).json({ message: error });
+
+  tag.placementNote = req.body.placementNote || "";
+  await tag.save();
   res.json(tag);
 };
 
@@ -69,4 +85,4 @@ const recordScan = async (req, res) => {
   res.json({ ok: true });
 };
 
-module.exports = { getTagsByBusiness, registerTag, activateTag, recordScan };
+module.exports = { getTagsByBusiness, registerTag, activateTag, updatePlacementNote, recordScan };

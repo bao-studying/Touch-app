@@ -26,6 +26,7 @@ const businessSchema = new mongoose.Schema(
     theme: {
       primaryColor: { type: String, default: "#4A2E1F" }, // mặc định = espresso-800
       buttonStyle: { type: String, enum: ["rounded", "square"], default: "rounded" },
+      fontFamily: { type: String, enum: ["fraunces", "poppins", "quicksand"], default: "fraunces" }, // Level 1+
     },
 
     plan: {

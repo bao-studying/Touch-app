@@ -10,7 +10,10 @@ const PLAN_LIMITS = {
     hasCrmExport: false,
     hasSmartReview: false,
     hasMultiBranch: false,
-    showsBrandingFooter: true,
+    hasFontPicker: false,
+    // Mô hình thu nhập: hiển thị quảng cáo trên Landing Page ở gói Free & Level 1 để duy trì máy chủ.
+    // Hiện tại chỉ là placeholder (chưa gắn mạng quảng cáo thật) — xem docs/ADS_INTEGRATION.md.
+    showsAds: true,
   },
   level1: {
     maxSocialLinks: Infinity,
@@ -19,7 +22,8 @@ const PLAN_LIMITS = {
     hasCrmExport: true,
     hasSmartReview: false,
     hasMultiBranch: false,
-    showsBrandingFooter: false,
+    hasFontPicker: true,
+    showsAds: true,
   },
   level2: {
     maxSocialLinks: Infinity,
@@ -28,7 +32,8 @@ const PLAN_LIMITS = {
     hasCrmExport: true,
     hasSmartReview: true,
     hasMultiBranch: false,
-    showsBrandingFooter: false,
+    hasFontPicker: true,
+    showsAds: false,
   },
   level3: {
     maxSocialLinks: Infinity,
@@ -37,7 +42,8 @@ const PLAN_LIMITS = {
     hasCrmExport: true,
     hasSmartReview: true,
     hasMultiBranch: true,
-    showsBrandingFooter: false,
+    hasFontPicker: true,
+    showsAds: false,
   },
 };
 
@@ -49,6 +55,7 @@ const FEATURE_LABELS = {
   hasCrmExport: "CRM + Xuất CSV",
   hasSmartReview: "Smart Review (đánh giá thông minh)",
   hasMultiBranch: "Quản lý đa chi nhánh",
+  hasFontPicker: "Chọn kiểu chữ thương hiệu",
 };
 
 const diffUnlockedFeatures = (oldPlan, newPlan) => {
@@ -65,6 +72,7 @@ const diffUnlockedFeatures = (oldPlan, newPlan) => {
   ) {
     unlocked.push("Hiệu ứng Marquee/Orbit cho Social Links");
   }
+  if (before.showsAds && !after.showsAds) unlocked.push("Loại bỏ quảng cáo");
   return unlocked;
 };
 

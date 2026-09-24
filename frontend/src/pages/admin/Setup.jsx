@@ -2,9 +2,12 @@ import { useState } from "react";
 import { Eye, X } from "lucide-react";
 import api from "../../api/axios";
 import { useBusiness } from "../../context/BusinessContext";
+import { useToast } from "../../context/ToastContext";
 import { getPlanLimits } from "../../utils/planLimits";
+import useDismissablePopup from "../../hooks/useDismissablePopup";
+import useLockBodyScroll from "../../hooks/useLockBodyScroll";
 import LandingPage from "../public/LandingPage";
-import ImageEditPopup from "../../components/admin/setup/ImageEditPopup";
+import BrandImagesEditPopup from "../../components/admin/setup/BrandImagesEditPopup";
 import BioEditPopup from "../../components/admin/setup/BioEditPopup";
 import SocialLinksEditPopup from "../../components/admin/setup/SocialLinksEditPopup";
 import ReviewSettingsEditPopup from "../../components/admin/setup/ReviewSettingsEditPopup";
@@ -15,17 +18,34 @@ import ThemeEditPopup from "../../components/admin/setup/ThemeEditPopup";
 // mỗi khối có 1 nút "✎ Edit" nổi ngay trên đó — bấm vào mở popup chỉnh riêng phần ấy.
 // Dùng chung cho cả mobile lẫn desktop (không còn split-screen).
 export default function Setup() {
-  const { business, links, refreshLinks, refreshBusiness, updateBusinessLocal } = useBusiness();
-  const [activePopup, setActivePopup] = useState(null); // 'cover' | 'logo' | 'bio' | 'links' | 'review' | 'loyalty' | 'theme'
+  const { business, links, refreshLinks, updateBusinessLocal } = useBusiness();
+  const { showToast } = useToast();
+  const [activePopup, setActivePopup] = useState(null); // 'images' | 'bio' | 'links' | 'review' | 'loyalty' | 'theme'
   const [guestPreview, setGuestPreview] = useState(false);
+  // duration khớp với animate-slide-out-up (220ms) để không unmount sớm hơn lúc hiệu ứng trượt
+  // xuống thật sự chạy xong.
+  const { closing: previewClosing, requestClose: closePreview, backdropProps: previewBackdropProps } = useDismissablePopup(
+    () => setGuestPreview(false),
+    { disabled: !guestPreview, duration: 220 }
+  );
+  // Khoá cuộn trang Setup phía sau trong lúc bottom sheet xem trước đang mở trên mobile.
+  useLockBodyScroll(guestPreview);
 
   if (!business) return null;
 
   const limits = getPlanLimits(business.plan);
 
+  // Điểm lưu DÙNG CHUNG cho mọi popup Setup Tab — báo rõ thành công/thất bại bằng toast thay vì
+  // chỉ lặng lẽ đóng popup, để người dùng luôn chắc chắn thay đổi đã được lưu.
   const saveField = async (patch) => {
-    const res = await api.put(`/business/${business._id}`, patch);
-    updateBusinessLocal(res.data);
+    try {
+      const res = await api.put(`/business/${business._id}`, patch);
+      updateBusinessLocal(res.data);
+      showToast("Đã lưu thay đổi", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không lưu được, vui lòng thử lại", "error");
+      throw err; // để popup gọi biết lưu thất bại, không đóng lại (giữ dữ liệu người dùng đang nhập)
+    }
   };
 
   const previewBusiness = {
@@ -35,13 +55,12 @@ export default function Setup() {
     features: {
       hasLoyalty: limits.hasLoyalty,
       hasSmartReview: limits.hasSmartReview,
-      showsBrandingFooter: limits.showsBrandingFooter,
+      showsAds: limits.showsAds,
     },
   };
 
   const editHandlers = {
-    onEditCover: () => setActivePopup("cover"),
-    onEditLogo: () => setActivePopup("logo"),
+    onEditBrandImages: () => setActivePopup("images"),
     onEditBio: () => setActivePopup("bio"),
     onEditLinks: () => setActivePopup("links"),
     onEditReview: () => setActivePopup("review"),
@@ -71,14 +90,18 @@ export default function Setup() {
         </div>
       </div>
 
-      {activePopup === "cover" && (
-        <ImageEditPopup title="Ảnh bìa (Cover)" value={business.coverUrl} shape="wide" onClose={() => setActivePopup(null)} onSave={(url) => saveField({ coverUrl: url })} />
-      )}
-      {activePopup === "logo" && (
-        <ImageEditPopup title="Logo / Avatar" value={business.logoUrl} shape="square" onClose={() => setActivePopup(null)} onSave={(url) => saveField({ logoUrl: url })} />
+      {activePopup === "images" && (
+        <BrandImagesEditPopup business={business} onClose={() => setActivePopup(null)} onSave={(patch) => saveField(patch)} />
       )}
       {activePopup === "bio" && (
-        <BioEditPopup name={business.name} bio={business.bio} onClose={() => setActivePopup(null)} onSave={(patch) => saveField(patch)} />
+        <BioEditPopup
+          name={business.name}
+          bio={business.bio}
+          theme={business.theme}
+          plan={business.plan}
+          onClose={() => setActivePopup(null)}
+          onSave={(patch) => saveField(patch)}
+        />
       )}
       {activePopup === "links" && (
         <SocialLinksEditPopup businessId={business._id} plan={business.plan} links={links} onClose={() => setActivePopup(null)} onRefresh={refreshLinks} />
@@ -93,17 +116,29 @@ export default function Setup() {
         <ThemeEditPopup theme={business.theme} onClose={() => setActivePopup(null)} onSave={(patch) => saveField(patch)} />
       )}
 
-      {/* Chế độ xem phía khách - fullscreen, sạch hoàn toàn, không có bất kỳ chrome chỉnh sửa nào */}
+      {/* Chế độ xem phía khách — full màn hình để đảm bảo LUÔN hiện đủ toàn bộ nội dung, cuộn được
+          hết xuống dưới cùng (trước đây dùng bottom-sheet chỉ chiếm 2/3 màn hình nên dễ bị cảm giác
+          "cắt mất" phần dưới). Vẫn giữ hiệu ứng trượt lên mượt + nút đóng nổi góc trên. */}
       {guestPreview && (
-        <div className="fixed inset-0 z-50 bg-cream-50 overflow-y-auto">
-          <button
-            onClick={() => setGuestPreview(false)}
-            className="fixed top-4 right-4 z-50 w-9 h-9 rounded-full bg-espresso-950/80 text-cream-50 flex items-center justify-center"
-            aria-label="Đóng xem trước"
+        <div
+          {...previewBackdropProps}
+          className={`fixed inset-0 z-50 bg-cream-50 ${previewClosing ? "animate-fade-out" : "animate-fade-in"}`}
+        >
+          <div
+            className={`h-full w-full overflow-y-auto ${previewClosing ? "animate-slide-out-up" : "animate-slide-in-up"}`}
           >
-            <X size={18} />
-          </button>
-          <LandingPage previewData={previewBusiness} />
+            <div className="sticky top-0 z-10 bg-cream-50/95 backdrop-blur pt-2.5 pb-2.5 px-4 flex items-center justify-between border-b border-espresso-900/8">
+              <span className="font-display text-base text-espresso-950">Xem như khách</span>
+              <button
+                onClick={closePreview}
+                className="w-8 h-8 rounded-full bg-espresso-900/8 text-espresso-800 flex items-center justify-center"
+                aria-label="Đóng xem trước"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <LandingPage previewData={previewBusiness} />
+          </div>
         </div>
       )}
     </div>

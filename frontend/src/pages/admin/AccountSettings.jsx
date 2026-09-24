@@ -16,11 +16,17 @@ import {
   X,
   RefreshCw,
   Phone,
+  ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
 import { useBusiness } from "../../context/BusinessContext";
+import { useToast } from "../../context/ToastContext";
 import { getPlanLimits, PLAN_LABELS } from "../../utils/planLimits";
+import EditPopup from "../../components/admin/setup/EditPopup";
+import useDismissablePopup from "../../hooks/useDismissablePopup";
+import useLockBodyScroll from "../../hooks/useLockBodyScroll";
 
 const APP_VERSION = "1.1.0";
 
@@ -36,10 +42,33 @@ function Section({ icon: Icon, title, children }) {
   );
 }
 
-export default function AccountSettings() {
+// Hàng bấm mở popup — dùng cho Lịch sử nâng cấp & Trung tâm Trợ giúp (dữ liệu gọn, không cần chiếm chỗ sẵn trên trang)
+function PopupRow({ icon: Icon, title, subtitle, onClick }) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center gap-3 rounded-2xl bg-white ring-1 ring-espresso-900/5 shadow-sm p-4 text-left">
+      <Icon size={16} className="text-espresso-800 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-espresso-900">{title}</p>
+        {subtitle && <p className="text-xs text-espresso-700/50 mt-0.5">{subtitle}</p>}
+      </div>
+      <ChevronRight size={16} className="text-espresso-700/30 shrink-0" />
+    </button>
+  );
+}
+
+// overlay=true: mở từ avatar mobile trên Home — trượt vào từ phải, đè lên trang chủ đang mờ dần
+// phía sau (xem pattern "modal route" ở App.jsx), thay vì chuyển hẳn sang trang mới.
+// overlay=false (mặc định): trang bình thường, dùng khi vào thẳng URL hoặc từ sidebar desktop.
+export default function AccountSettings({ overlay = false }) {
   const { admin, logout } = useAuth();
   const { business, updateBusinessLocal } = useBusiness();
+  const { showToast } = useToast();
   const navigate = useNavigate();
+  // duration khớp với thời lượng animate-slide-out-right (220ms) để requestClose() không unmount
+  // sớm hơn lúc hiệu ứng trượt ra thật sự chạy xong.
+  const { closing, requestClose, backdropProps } = useDismissablePopup(() => navigate(-1), { disabled: !overlay, duration: 220 });
+  // Khoá cuộn trang chủ phía sau trong lúc drawer overlay đang mở trên mobile.
+  useLockBodyScroll(overlay);
 
   const [name, setName] = useState(admin?.name || "");
   const [savingName, setSavingName] = useState(false);
@@ -50,6 +79,8 @@ export default function AccountSettings() {
   const [history, setHistory] = useState([]);
   const [newBranch, setNewBranch] = useState("");
   const [updateMsg, setUpdateMsg] = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   useEffect(() => {
     if (!business) return;
@@ -64,6 +95,9 @@ export default function AccountSettings() {
     setSavingName(true);
     try {
       await api.put("/auth/me", { name });
+      showToast("Đã cập nhật tên hiển thị", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không lưu được, thử lại nhé.", "error");
     } finally {
       setSavingName(false);
     }
@@ -92,14 +126,24 @@ export default function AccountSettings() {
 
   const handleAddBranch = async () => {
     if (!newBranch.trim()) return;
-    const res = await api.put(`/business/${business._id}`, { branches: [...business.branches, newBranch.trim()] });
-    updateBusinessLocal(res.data);
-    setNewBranch("");
+    try {
+      const res = await api.put(`/business/${business._id}`, { branches: [...business.branches, newBranch.trim()] });
+      updateBusinessLocal(res.data);
+      setNewBranch("");
+      showToast("Đã thêm chi nhánh", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không thêm được, thử lại nhé.", "error");
+    }
   };
 
   const handleRemoveBranch = async (branch) => {
-    const res = await api.put(`/business/${business._id}`, { branches: business.branches.filter((b) => b !== branch) });
-    updateBusinessLocal(res.data);
+    try {
+      const res = await api.put(`/business/${business._id}`, { branches: business.branches.filter((b) => b !== branch) });
+      updateBusinessLocal(res.data);
+      showToast("Đã xóa chi nhánh", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không xóa được, thử lại nhé.", "error");
+    }
   };
 
   const handleCheckUpdate = async () => {
@@ -126,9 +170,9 @@ export default function AccountSettings() {
     navigate("/login");
   };
 
-  return (
+  const content = (
     <div className="max-w-2xl mx-auto px-4 py-5 md:px-8 md:py-8 space-y-4">
-      <h1 className="font-display text-2xl text-espresso-950">Cài đặt tài khoản</h1>
+      {!overlay && <h1 className="font-display text-2xl text-espresso-950">Cài đặt tài khoản</h1>}
 
       <Section icon={User} title="Thông tin cá nhân">
         <div className="space-y-2">
@@ -193,20 +237,7 @@ export default function AccountSettings() {
         </div>
       </Section>
 
-      <Section icon={History} title="Lịch sử nâng cấp">
-        {history.length === 0 ? (
-          <p className="text-xs text-espresso-700/50">Chưa có lịch sử thay đổi gói.</p>
-        ) : (
-          <div className="space-y-1.5">
-            {history.map((h, i) => (
-              <div key={i} className="flex items-center justify-between text-xs">
-                <span className="text-espresso-900 font-medium">{PLAN_LABELS[h.plan]}</span>
-                <span className="text-espresso-700/50">{new Date(h.changedAt).toLocaleString("vi-VN")}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
+      <PopupRow icon={History} title="Lịch sử nâng cấp" subtitle={`${history.length} lần thay đổi`} onClick={() => setShowHistory(true)} />
 
       {limits.hasMultiBranch && (
         <Section icon={MapPin} title="Quản lý chi nhánh">
@@ -235,18 +266,7 @@ export default function AccountSettings() {
         </Section>
       )}
 
-      <Section icon={HelpCircle} title="Trung tâm Trợ giúp">
-        <ul className="text-xs text-espresso-700/70 space-y-2 list-disc pl-4 mb-3">
-          <li>Chạm mặt sau điện thoại (có NFC) vào vị trí chip trên mô hình decor, giữ 1-2 giây.</li>
-          <li>Không có NFC? Dùng camera quét mã QR dán kèm trên mô hình.</li>
-          <li>Đặt mô hình decor ở nơi khách dễ thấy, dễ với tay tới — quầy thu ngân hoặc đầu bàn là vị trí tốt.</li>
-        </ul>
-        {business.hotline && (
-          <a href={`tel:${business.hotline}`} className="flex items-center gap-2 text-sm text-espresso-800">
-            <Phone size={14} /> Hotline hỗ trợ: {business.hotline}
-          </a>
-        )}
-      </Section>
+      <PopupRow icon={HelpCircle} title="Trung tâm Trợ giúp" subtitle="Hướng dẫn NFC/QR, mẹo decor, liên hệ hỗ trợ" onClick={() => setShowHelp(true)} />
 
       <Section icon={Info} title="Phiên bản ứng dụng">
         <div className="flex items-center justify-between">
@@ -261,6 +281,67 @@ export default function AccountSettings() {
       <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 rounded-xl bg-clay-500/10 text-clay-500 py-3 text-sm font-medium">
         <LogOut size={16} /> Đăng xuất
       </button>
+
+      {showHistory && (
+        <EditPopup title="Lịch sử nâng cấp" onClose={() => setShowHistory(false)}>
+          {history.length === 0 ? (
+            <p className="text-sm text-espresso-700/50 text-center py-4">Chưa có lịch sử thay đổi gói.</p>
+          ) : (
+            <div className="space-y-2">
+              {history.map((h, i) => (
+                <div key={i} className="flex items-center justify-between text-sm rounded-xl bg-espresso-900/5 px-3 py-2.5">
+                  <span className="text-espresso-900 font-medium">{PLAN_LABELS[h.plan]}</span>
+                  <span className="text-espresso-700/50 text-xs">{new Date(h.changedAt).toLocaleString("vi-VN")}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </EditPopup>
+      )}
+
+      {showHelp && (
+        <EditPopup title="Trung tâm Trợ giúp" onClose={() => setShowHelp(false)}>
+          <ul className="text-sm text-espresso-700/70 space-y-2.5 list-disc pl-4 mb-4">
+            <li>Chạm mặt sau điện thoại (có NFC) vào vị trí chip trên mô hình decor, giữ 1-2 giây.</li>
+            <li>Không có NFC? Dùng camera quét mã QR dán kèm trên mô hình.</li>
+            <li>Đặt mô hình decor ở nơi khách dễ thấy, dễ với tay tới — quầy thu ngân hoặc đầu bàn là vị trí tốt.</li>
+          </ul>
+          {business.hotline && (
+            <a href={`tel:${business.hotline}`} className="flex items-center gap-2 text-sm text-espresso-800 font-medium">
+              <Phone size={14} /> Hotline hỗ trợ: {business.hotline}
+            </a>
+          )}
+        </EditPopup>
+      )}
+    </div>
+  );
+
+  if (!overlay) return content;
+
+  // Chế độ overlay (mobile): trượt vào từ phải kiểu menu 3 gạch trên app FB — panel chiếm gần
+  // hết chiều rộng (85%), chỉ chừa 1 khoảng hở nhỏ bên trái lộ trang chủ mờ phía sau qua lớp
+  // backdrop tối + blur, vừa đủ để nội dung cài đặt (input, nút...) không bị chật. Bấm vào phần
+  // lộ ra đó hoặc nút mũi tên quay lại đều đóng có hiệu ứng trượt ra trước khi thật sự back về
+  // Home (xem useDismissablePopup + pattern backgroundLocation ở App.jsx). Từ sm trở lên dùng bề
+  // rộng cố định vì màn hình đã đủ lớn để không cần kiểu "hé lộ".
+  return (
+    <div
+      {...backdropProps}
+      className={`fixed inset-0 z-40 bg-espresso-950/40 backdrop-blur-sm flex justify-end ${closing ? "animate-fade-out" : "animate-fade-in"}`}
+    >
+      <div
+        className={`w-[85%] sm:w-[440px] h-full bg-cream-100 overflow-y-auto shadow-2xl ${
+          closing ? "animate-slide-out-right" : "animate-slide-in-right"
+        }`}
+      >
+        <div className="sticky top-0 z-10 bg-cream-100/95 backdrop-blur px-3 py-3 flex items-center gap-2 border-b border-espresso-900/8">
+          <button onClick={requestClose} className="p-2 -ml-1 text-espresso-800 rounded-full active:bg-espresso-900/5" aria-label="Quay lại">
+            <ArrowLeft size={20} />
+          </button>
+          <span className="font-display text-lg text-espresso-950">Cài đặt tài khoản</span>
+        </div>
+        {content}
+      </div>
     </div>
   );
 }

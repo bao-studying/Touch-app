@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Gift, X, CheckCircle2 } from "lucide-react";
 import api from "../../api/axios";
+import useDismissablePopup from "../../hooks/useDismissablePopup";
 
 // Widget góc màn hình mời đăng ký Khách hàng thân thiết. Không chắn tầm nhìn, có thể đóng lại.
 export default function LoyaltyForm({ businessId, offerText, theme }) {
@@ -27,6 +28,8 @@ export default function LoyaltyForm({ businessId, offerText, theme }) {
     }
   };
 
+  const { closing, requestClose, backdropProps } = useDismissablePopup(() => (done ? setDismissed(true) : setOpen(false)));
+
   if (dismissed) return null;
 
   return (
@@ -44,10 +47,15 @@ export default function LoyaltyForm({ businessId, offerText, theme }) {
       )}
 
       {open && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-espresso-950/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-cream-50 p-5 shadow-xl relative">
+        <div
+          {...backdropProps}
+          className={`fixed inset-0 z-40 flex items-end sm:items-center justify-center bg-espresso-950/40 backdrop-blur-sm p-4 ${
+            closing ? "animate-fade-out" : "animate-fade-in"
+          }`}
+        >
+          <div className={`w-full max-w-sm rounded-2xl glass-panel p-5 shadow-xl relative ${closing ? "animate-pop-out" : "animate-pop-in"}`}>
             <button
-              onClick={() => (done ? setDismissed(true) : setOpen(false))}
+              onClick={requestClose}
               className="absolute top-3 right-3 text-espresso-700/50"
               aria-label="Đóng"
             >

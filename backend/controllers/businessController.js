@@ -1,7 +1,7 @@
 const Business = require("../models/Business");
 const Link = require("../models/Link");
 const { getPlanLimits, diffUnlockedFeatures, PLAN_ORDER } = require("../config/planLimits");
-const { ensureActivePlan } = require("../utils/planGate");
+const { ensureActivePlan, applyPlanChange } = require("../utils/planGate");
 
 const slugify = (str) =>
   str
@@ -94,6 +94,16 @@ const updateBusiness = async (req, res) => {
   if (req.body.theme) {
     if (req.body.theme.primaryColor !== undefined) business.theme.primaryColor = req.body.theme.primaryColor;
     if (req.body.theme.buttonStyle !== undefined) business.theme.buttonStyle = req.body.theme.buttonStyle;
+    if (req.body.theme.fontFamily !== undefined) {
+      // Chọn kiểu chữ là tính năng Level 1+ — chặn thật ở server, không chỉ ẩn ở giao diện
+      if (!getPlanLimits(business.plan).hasFontPicker && req.body.theme.fontFamily !== "fraunces") {
+        return res.status(403).json({
+          message: "Chọn kiểu chữ thương hiệu cần nâng cấp lên Level 1 trở lên.",
+          code: "PLAN_LIMIT_FONT",
+        });
+      }
+      business.theme.fontFamily = req.body.theme.fontFamily;
+    }
   }
 
   await business.save();
@@ -116,10 +126,7 @@ const changePlan = async (req, res) => {
   const oldPlan = business.plan;
   const unlockedFeatures = diffUnlockedFeatures(oldPlan, plan);
 
-  business.plan = plan;
-  business.planExpiresAt = plan === "free" ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-  business.planHistory.push({ plan, changedAt: new Date() });
-  await business.save();
+  await applyPlanChange(business, plan);
 
   res.json({ business, unlockedFeatures });
 };
@@ -164,7 +171,7 @@ const getPublicBusinessBySlug = async (req, res) => {
     features: {
       hasLoyalty: limits.hasLoyalty,
       hasSmartReview: limits.hasSmartReview,
-      showsBrandingFooter: limits.showsBrandingFooter,
+      showsAds: limits.showsAds,
     },
     links,
   });

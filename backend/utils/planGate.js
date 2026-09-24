@@ -11,4 +11,14 @@ const ensureActivePlan = async (business) => {
   return business;
 };
 
-module.exports = { ensureActivePlan };
+// Áp dụng đổi gói (dùng chung cho đổi trực tiếp/miễn phí VÀ khi thanh toán SePay thành công).
+// Gói trả phí luôn đặt hạn 30 ngày kể từ lúc áp dụng.
+const applyPlanChange = async (business, plan) => {
+  business.plan = plan;
+  business.planExpiresAt = plan === "free" ? null : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  business.planHistory.push({ plan, changedAt: new Date() });
+  await business.save();
+  return business;
+};
+
+module.exports = { ensureActivePlan, applyPlanChange };

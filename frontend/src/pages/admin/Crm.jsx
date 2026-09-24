@@ -4,6 +4,7 @@ import api from "../../api/axios";
 import { useBusiness } from "../../context/BusinessContext";
 import { getPlanLimits } from "../../utils/planLimits";
 import PlanLockBadge from "../../components/admin/PlanLockBadge";
+import { SkeletonList } from "../../components/admin/Skeleton";
 
 export default function Crm() {
   const { business } = useBusiness();
@@ -57,7 +58,13 @@ export default function Crm() {
       </div>
     );
 
-  if (loading) return <div className="p-6 text-espresso-700 text-sm">Đang tải dữ liệu...</div>;
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-5 md:px-8 md:py-8">
+        <SkeletonList rows={4} />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-5 md:px-8 md:py-8 space-y-4">
@@ -118,7 +125,16 @@ export default function Crm() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-center text-sm text-espresso-700/50 py-8">Chưa có khách hàng nào.</p>}
+        {filtered.length === 0 && (
+          <div className="text-center py-10">
+            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-espresso-900/5 flex items-center justify-center">
+              <Users size={24} className="text-espresso-700/30" />
+            </div>
+            <p className="text-sm text-espresso-700/60">
+              {leads.length === 0 ? "Chưa có khách hàng thân thiết nào — chia sẻ link để bắt đầu thu thập." : "Không có khách hàng nào khớp tìm kiếm."}
+            </p>
+          </div>
+        )}
         <ExportButton full />
       </div>
 
@@ -161,7 +177,16 @@ export default function Crm() {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && <p className="text-center text-sm text-espresso-700/50 py-10">Chưa có khách hàng nào.</p>}
+        {filtered.length === 0 && (
+          <div className="text-center py-10">
+            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-espresso-900/5 flex items-center justify-center">
+              <Users size={24} className="text-espresso-700/30" />
+            </div>
+            <p className="text-sm text-espresso-700/60">
+              {leads.length === 0 ? "Chưa có khách hàng thân thiết nào — chia sẻ link để bắt đầu thu thập." : "Không có khách hàng nào khớp tìm kiếm."}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

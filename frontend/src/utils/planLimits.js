@@ -8,7 +8,8 @@ export const PLAN_LIMITS = {
     hasCrmExport: false,
     hasSmartReview: false,
     hasMultiBranch: false,
-    showsBrandingFooter: true,
+    hasFontPicker: false,
+    showsAds: true,
   },
   level1: {
     maxSocialLinks: Infinity,
@@ -17,7 +18,8 @@ export const PLAN_LIMITS = {
     hasCrmExport: true,
     hasSmartReview: false,
     hasMultiBranch: false,
-    showsBrandingFooter: false,
+    hasFontPicker: true,
+    showsAds: true,
   },
   level2: {
     maxSocialLinks: Infinity,
@@ -26,7 +28,8 @@ export const PLAN_LIMITS = {
     hasCrmExport: true,
     hasSmartReview: true,
     hasMultiBranch: false,
-    showsBrandingFooter: false,
+    hasFontPicker: true,
+    showsAds: false,
   },
   level3: {
     maxSocialLinks: Infinity,
@@ -35,7 +38,8 @@ export const PLAN_LIMITS = {
     hasCrmExport: true,
     hasSmartReview: true,
     hasMultiBranch: true,
-    showsBrandingFooter: false,
+    hasFontPicker: true,
+    showsAds: false,
   },
 };
 
@@ -50,4 +54,29 @@ export const minPlanFor = (featureKey) => {
     if (PLAN_LIMITS[p][featureKey]) return p;
   }
   return "level3";
+};
+
+// Mirror của diffUnlockedFeatures backend — dùng để tính toast "Đã mở khóa..." sau khi thanh toán
+// thành công qua SePay (lúc đó chỉ biết được qua polling, không có response trực tiếp từ webhook).
+const FEATURE_LABELS = {
+  hasLoyalty: "Thu thập Khách hàng thân thiết (Loyalty)",
+  hasCrmExport: "CRM + Xuất CSV",
+  hasSmartReview: "Smart Review (đánh giá thông minh)",
+  hasMultiBranch: "Quản lý đa chi nhánh",
+  hasFontPicker: "Chọn kiểu chữ thương hiệu",
+};
+
+export const diffUnlockedFeatures = (oldPlan, newPlan) => {
+  const before = getPlanLimits(oldPlan);
+  const after = getPlanLimits(newPlan);
+  const unlocked = [];
+  Object.keys(FEATURE_LABELS).forEach((key) => {
+    if (!before[key] && after[key]) unlocked.push(FEATURE_LABELS[key]);
+  });
+  if (after.maxSocialLinks > before.maxSocialLinks) unlocked.push("Không giới hạn Social Links");
+  if (after.allowedAnimations.length > before.allowedAnimations.length && after.allowedAnimations.includes("orbit")) {
+    unlocked.push("Hiệu ứng Marquee/Orbit cho Social Links");
+  }
+  if (before.showsAds && !after.showsAds) unlocked.push("Loại bỏ quảng cáo");
+  return unlocked;
 };

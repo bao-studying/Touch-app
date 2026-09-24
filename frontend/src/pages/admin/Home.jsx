@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { Users, Star, ScanLine, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Users, Star, ScanLine, AlertTriangle, CheckCircle2, MessageSquareHeart, MapPin } from "lucide-react";
 import api from "../../api/axios";
 import { useAuth } from "../../context/AuthContext";
 import { useBusiness } from "../../context/BusinessContext";
+import { useToast } from "../../context/ToastContext";
+import { SkeletonStatCards, SkeletonBlock } from "../../components/admin/Skeleton";
 
 export default function Home() {
   const { admin } = useAuth();
   const { business } = useBusiness();
+  const { showToast } = useToast();
+  const location = useLocation();
   const [reviews, setReviews] = useState([]);
   const [leads, setLeads] = useState([]);
   const [tags, setTags] = useState([]);
@@ -34,8 +38,18 @@ export default function Home() {
 
   const internalFeedback = reviews.filter((r) => r.channel === "internal");
   const newFeedback = internalFeedback.filter((r) => r.status === "new");
-  const avgRating = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "—";
+  const today = new Date().toDateString();
+  const feedbackToday = internalFeedback.filter((r) => new Date(r.createdAt).toDateString() === today);
+  // "Đánh giá TB" chỉ tính trên review có chấm sao thật (bỏ qua "Góp ý riêng" rating=0)
+  const ratedReviews = reviews.filter((r) => r.rating > 0);
+  const avgRating = ratedReviews.length ? (ratedReviews.reduce((s, r) => s + r.rating, 0) / ratedReviews.length).toFixed(1) : "—";
   const totalScans = tags.reduce((s, t) => s + (t.scanCount || 0), 0);
+
+  const handleOpenGoogleMaps = () => {
+    if (business?.googleMapsLink) {
+      window.open(business.googleMapsLink, "_blank", "noopener,noreferrer");
+    }
+  };
 
   const chartData = useMemo(() => {
     const days = [...Array(7)].map((_, i) => {
@@ -51,11 +65,24 @@ export default function Home() {
   }, [leads]);
 
   const resolveFeedback = async (id) => {
-    await api.put(`/reviews/${id}/status`, { status: "resolved" });
-    loadData();
+    try {
+      await api.put(`/reviews/${id}/status`, { status: "resolved" });
+      showToast("Đã đánh dấu xử lý xong", "success");
+      loadData();
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không cập nhật được, thử lại nhé.", "error");
+    }
   };
 
-  if (loading) return <div className="p-6 text-espresso-700 text-sm">Đang tải dữ liệu...</div>;
+  if (loading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-5 md:px-8 md:py-8 space-y-6">
+        <SkeletonBlock className="h-16 w-1/2" />
+        <SkeletonStatCards />
+        <SkeletonBlock className="h-56 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-5 md:px-8 md:py-8 space-y-6">
@@ -64,9 +91,12 @@ export default function Home() {
           <h1 className="font-display text-2xl text-espresso-950">Tổng quan</h1>
           <p className="text-sm text-espresso-700/60">{business?.name}</p>
         </div>
-        {/* Avatar tài khoản — chỉ hiện trên mobile (desktop đã có mục trong sidebar) */}
+        {/* Avatar tài khoản — chỉ hiện trên mobile (desktop đã có mục trong sidebar).
+            Truyền backgroundLocation để AccountSettings mở dạng overlay trượt vào, đè lên
+            trang Home đang mờ phía sau, thay vì chuyển hẳn sang trang mới. */}
         <Link
           to="/admin/account"
+          state={{ backgroundLocation: location }}
           className="md:hidden w-10 h-10 rounded-full bg-espresso-800 text-cream-50 flex items-center justify-center text-sm font-medium shrink-0"
           aria-label="Cài đặt tài khoản"
         >
@@ -76,16 +106,36 @@ export default function Home() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={ScanLine} label="Tổng lượt quét" value={totalScans} />
-        <StatCard icon={Users} label="Khách thân thiết" value={leads.length} />
-        <StatCard icon={Star} label="Đánh giá TB" value={avgRating} />
-        <StatCard icon={AlertTriangle} label="Góp ý cần xử lý" value={newFeedback.length} accent={newFeedback.length > 0} />
+        <StatCard as={Link} to="/admin/crm" icon={Users} label="Khách thân thiết" value={leads.length} />
+        <StatCard
+          as="button"
+          onClick={handleOpenGoogleMaps}
+          disabled={!business?.googleMapsLink}
+          icon={Star}
+          label={business?.googleMapsLink ? "Đánh giá TB · xem trên Maps" : "Đánh giá TB"}
+          value={avgRating}
+          trailingIcon={business?.googleMapsLink ? MapPin : null}
+        />
+        <StatCard
+          as={Link}
+          to="/admin/feedback"
+          icon={MessageSquareHeart}
+          label="Góp ý hôm nay"
+          value={feedbackToday.length}
+          accent={feedbackToday.length > 0}
+        />
       </div>
 
       {newFeedback.length > 0 && (
         <div className="rounded-2xl bg-clay-500/10 ring-1 ring-clay-500/25 p-4">
-          <p className="flex items-center gap-2 text-sm font-medium text-clay-500 mb-3">
-            <AlertTriangle size={16} /> Đánh giá 1-3 sao mới — cần phản hồi khách
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="flex items-center gap-2 text-sm font-medium text-clay-500">
+              <AlertTriangle size={16} /> Đánh giá 1-3 sao mới — cần phản hồi khách
+            </p>
+            <Link to="/admin/feedback" className="text-xs font-medium text-clay-500 underline shrink-0">
+              Xem tất cả
+            </Link>
+          </div>
           <div className="space-y-2">
             {newFeedback.slice(0, 5).map((r) => (
               <div key={r._id} className="bg-white rounded-xl px-3 py-2.5 flex items-start justify-between gap-3">
@@ -123,12 +173,24 @@ export default function Home() {
   );
 }
 
-function StatCard({ icon: Icon, label, value, accent }) {
+// as: "div" (mặc định, không bấm được) | Link (điều hướng) | "button" (hành động tùy chỉnh, VD mở Google Maps).
+// Card có thể bấm được sẽ có hiệu ứng nhấn nhẹ (active:scale) để báo hiệu rõ là tương tác được.
+function StatCard({ as: Component = "div", icon: Icon, trailingIcon: TrailingIcon, label, value, accent, disabled, ...rest }) {
+  const clickable = Component !== "div" && !disabled;
   return (
-    <div className={`rounded-2xl p-4 shadow-sm ring-1 ${accent ? "bg-clay-500/10 ring-clay-500/20" : "bg-white ring-espresso-900/5"}`}>
-      <Icon size={18} className={accent ? "text-clay-500" : "text-espresso-800"} />
+    <Component
+      {...rest}
+      disabled={Component === "button" ? disabled : undefined}
+      className={`text-left rounded-2xl p-4 transition-transform ${
+        accent ? "bg-clay-500/10 ring-1 ring-clay-500/20 shadow-sm" : "glass-card"
+      } ${clickable ? "active:scale-[0.97] cursor-pointer" : ""} ${disabled ? "opacity-60 cursor-default" : ""}`}
+    >
+      <div className="flex items-center justify-between">
+        <Icon size={18} className={accent ? "text-clay-500" : "text-espresso-800"} />
+        {TrailingIcon && <TrailingIcon size={13} className="text-espresso-700/40" />}
+      </div>
       <p className="text-2xl font-display mt-2 text-espresso-950">{value}</p>
       <p className="text-[11px] text-espresso-700/60">{label}</p>
-    </div>
+    </Component>
   );
 }

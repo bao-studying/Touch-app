@@ -7,6 +7,7 @@ import AnimationPicker from "../AnimationPicker";
 import PlanLockBadge from "../PlanLockBadge";
 import { getPlanLimits } from "../../../utils/planLimits";
 import { detectPlatform } from "../../../utils/detectPlatform";
+import { useToast } from "../../../context/ToastContext";
 
 const PLATFORM_ICON = {
   facebook: SiFacebook,
@@ -34,6 +35,7 @@ const PLATFORM_LABEL = {
 };
 
 function LinkRow({ link, plan, onSaved, onDeleted }) {
+  const { showToast } = useToast();
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState(link.url);
   const [label, setLabel] = useState(link.label || "");
@@ -51,6 +53,7 @@ function LinkRow({ link, plan, onSaved, onDeleted }) {
       const res = await api.put(`/links/${link._id}`, { url, label, animation, platform });
       onSaved(res.data);
       setOpen(false);
+      showToast("Đã lưu liên kết", "success");
     } catch (err) {
       setError(err.response?.data?.message || "Không lưu được, thử lại nhé.");
     } finally {
@@ -59,8 +62,13 @@ function LinkRow({ link, plan, onSaved, onDeleted }) {
   };
 
   const handleDelete = async () => {
-    await api.delete(`/links/${link._id}`);
-    onDeleted(link._id);
+    try {
+      await api.delete(`/links/${link._id}`);
+      onDeleted(link._id);
+      showToast("Đã xóa liên kết", "success");
+    } catch (err) {
+      showToast(err.response?.data?.message || "Không xóa được, thử lại nhé.", "error");
+    }
   };
 
   return (
@@ -119,6 +127,7 @@ function LinkRow({ link, plan, onSaved, onDeleted }) {
 }
 
 export default function SocialLinksEditPopup({ businessId, plan, links, onClose, onRefresh }) {
+  const { showToast } = useToast();
   const [adding, setAdding] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [newLabel, setNewLabel] = useState("");
@@ -141,6 +150,7 @@ export default function SocialLinksEditPopup({ businessId, plan, links, onClose,
       setNewAnimation("stationary");
       setAdding(false);
       onRefresh();
+      showToast("Đã thêm liên kết mới", "success");
     } catch (err) {
       setError(err.response?.data?.message || "Không thêm được liên kết, thử lại nhé.");
     } finally {

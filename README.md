@@ -111,6 +111,127 @@ Hỏi tôi bất cứ lúc nào nếu bạn muốn tôi hỗ trợ bước đón
   giá thông minh — có Place ID thì dùng `search.google.com/local/writereview?placeid=...`, chưa có thì fallback
   về link Maps thường.
 
+## Cập nhật vòng 3 — SePay, popup chi tiết chip, font thương hiệu, quảng cáo, UI polish
+
+- **Thanh toán nâng cấp gói qua SePay** (`backend/controllers/paymentController.js`,
+  `frontend/src/components/admin/PaymentModal.jsx`): tạo đơn (15 phút), hiện mã VietQR + thông tin chuyển khoản
+  (có nút Copy từng dòng), poll trạng thái mỗi 3 giây, tự đánh dấu hết hạn nếu quá giờ. Có nút **"Giả lập thanh
+  toán thành công"** ngay trong modal để bạn test luồng UI khi chưa nối SePay thật.
+  - Cấu hình trong `backend/.env`: `SEPAY_BANK_ID`, `SEPAY_ACCOUNT_NO`, `SEPAY_ACCOUNT_NAME` (thông tin tài
+    khoản nhận tiền — dùng để hiện trong modal VÀ tạo QR qua `img.vietqr.io`, không cần API key vì đây là dịch
+    vụ tạo ảnh QR công khai theo chuẩn VietQR).
+  - Để nhận webhook thật từ SePay khi test local: chạy `ngrok http 5000`, lấy URL public Ngrok cấp, khai báo
+    `https://<ngrok-url>/api/payments/webhook/sepay` làm Webhook URL trong dashboard SePay. Có thể đặt thêm
+    `SEPAY_WEBHOOK_TOKEN` trong `.env` và cấu hình cùng giá trị bên SePay để xác thực webhook 2 chiều.
+  - Nội dung chuyển khoản tự sinh theo format `O2O<mã doanh nghiệp><TÊN GÓI><mã ngẫu nhiên>`, dùng để đối soát
+    khi webhook gọi về — xem `generateOrderCode()` trong `paymentController.js`.
+- **Popup chi tiết chip/QR**: bấm vào 1 dòng trong trang Kích hoạt NFC để xem loại vật phẩm, UID, chi nhánh,
+  ngày tạo/kích hoạt, tổng lượt quét, URL đích (copy nhanh), và **ghi chú vị trí đặt** (tự do, không giới hạn
+  enum). Nếu kích hoạt bằng QR thì hiện lại ảnh QR để tải lại; nếu là chip NFC thật thì có nút đánh dấu "đã ghi
+  lại chip" (phòng khi chip hỏng cần thay).
+- **FAB mobile** giờ điều hướng sang trang quản lý chip (`/admin/nfc`) thay vì mở thẳng modal kích hoạt.
+- **Chọn kiểu chữ thương hiệu** (Level 1+): Fraunces / Poppins / Quicksand, gộp trong popup "Tên & Giới thiệu".
+  Ảnh Cover/Logo/Mascot gộp chung 1 popup "Ảnh thương hiệu" (trước đây tách rời, gây khó tìm nút sửa Avatar).
+- **Quảng cáo (đặt nền cho sau này)**: gói Free & Level 1 hiện có 1 khối placeholder "Vị trí quảng cáo" trên
+  Landing Page — CHƯA nối mạng quảng cáo thật. Xem hướng dẫn chi tiết khi triển khai tại
+  [`docs/ADS_INTEGRATION.md`](./docs/ADS_INTEGRATION.md).
+- **UI polish**: linh vật hạt cà phê minh họa SVG gốc (`components/common/MascotIllustration.jsx`) thay thế
+  emoji ☕ ở màn kích hoạt NFC và các empty-state; popup có hiệu ứng mượt khi mở/đóng; khung tải dữ liệu dùng
+  skeleton thay vì chữ "Đang tải..." trơn; màu Theme giờ luôn thấy rõ ngay (thanh kéo + viền avatar trong thẻ
+  Membership Widget của Setup Tab dùng màu thương hiệu).
+
+## Cập nhật vòng 4 — UI/UX polish, Góp ý riêng, thanh toán SePay thật, bảng màu chi tiết
+
+- **Thanh toán SePay đã kết nối thật (không còn là demo)**: người dùng đã tự cấu hình SePay + ngrok và xác
+  nhận quét mã hoạt động trơn tru. `PaymentModal.jsx` giờ **ẩn nút "Giả lập thanh toán"** bất cứ khi nào đơn
+  hàng đã có mã QR thật (`order.qrUrl`) — thay bằng dòng xác nhận hệ thống tự đối soát qua webhook SePay.
+  Nút giả lập chỉ còn xuất hiện làm phương án dự phòng khi môi trường CHƯA cấu hình `SEPAY_BANK_ID` (dev/test
+  local). Logic BE tại `backend/controllers/paymentController.js` không đổi vì webhook đối soát đã đúng từ
+  vòng 3 — chỉ cần đúng Webhook URL trỏ về ngrok/domain thật là chạy được, không cần sửa code.
+- **Popup/modal đóng khi bấm ra ngoài + hiệu ứng ẩn mượt**: thêm hook dùng chung
+  `frontend/src/hooks/useDismissablePopup.js` — bấm vào lớp nền (backdrop) sẽ đóng popup, có animation
+  fade-out/pop-out trước khi biến mất (không còn "biến mất đột ngột"). Áp dụng cho `EditPopup` (dùng chung
+  cho hầu hết popup ở Setup Tab + chi tiết chip NFC), `PaymentModal`, `NfcActivationModal` (chặn đóng khi đang
+  chạm chip để tránh hủy nhầm thao tác), và `LoyaltyForm` ở Landing Page.
+- **Landing Page — hiệu ứng cuộn "chìm nền"**: khi khách lướt lên, khối thông tin đè lên ảnh bìa (đã có từ
+  trước), nay ảnh nền còn **chìm nhẹ xuống dưới + phóng to nhẹ (parallax sink)** đồng thời với lớp phủ tối mờ
+  dần — xem `pages/public/LandingPage.jsx`.
+- **Bảng màu chọn chính xác hơn ở Setup Tab**: `components/common/ColorPicker.jsx` — bảng HSV kéo chọn độ
+  bão hòa/độ sáng + thanh trượt Hue + ô nhập mã Hex trực tiếp, không phụ thuộc `input[type=color]` mặc định
+  của trình duyệt (vốn hiển thị khác nhau giữa Windows/macOS/Android). Vẫn giữ dải màu gợi ý nhanh bên trên.
+  Dùng trong `ThemeEditPopup.jsx`.
+- **Cài đặt tài khoản trên mobile — hiệu ứng trượt đè lên trang chủ**: áp dụng pattern "modal route" của
+  React Router (`location.state.backgroundLocation`, xem `App.jsx`). Khi bấm avatar trên Home (mobile),
+  `AccountSettings` mở dưới dạng panel trượt vào từ phải, đè lên trang chủ đang hiển thị mờ phía sau qua lớp
+  backdrop tối — thay vì chuyển hẳn sang trang mới như trước. Bấm ra ngoài hoặc mũi tên quay lại đều có hiệu
+  ứng trượt ra trước khi thật sự quay lại Home. Vào thẳng URL `/admin/account` hoặc bấm từ sidebar desktop vẫn
+  hiển thị như trang bình thường (không đổi hành vi cũ).
+- **Tính năng "Góp ý riêng"** (khách gửi thẳng cho chủ quán, không qua luồng chấm sao, không public):
+  - Backend: `POST /api/reviews/public/private` (không cần đăng nhập) — cho phép gửi góp ý không chấm sao
+    (`rating` mặc định 0, model `Review.js` đã nới `min` từ 1 xuống 0). Luôn lưu kênh `internal`.
+  - Landing Page: nút "Gửi góp ý riêng cho chúng tôi" bên dưới Social Links
+    (`components/public/PrivateFeedbackForm.jsx`) — mở popup nhỏ, chấm sao tùy chọn + ô nhập nội dung.
+  - Admin: card **"Góp ý hôm nay"** mới trên Home (đếm góp ý nội bộ tạo trong ngày), bấm vào mở trang đầy đủ
+    `pages/admin/Feedback.jsx` (`/admin/feedback`) — liệt kê TOÀN BỘ góp ý (cả từ chấm sao 1-3 lẫn "Góp ý
+    riêng"), lọc theo trạng thái, tìm theo nội dung, đánh dấu đã xử lý. Có thêm mục "Góp ý khách hàng" trong
+    sidebar desktop. Khối "Đánh giá 1-3 sao mới — cần phản hồi khách" trên Home giữ nguyên, chỉ thêm link
+    "Xem tất cả" trỏ sang trang Góp ý.
+- **Card "Khách hàng thân thiết" trên Home** giờ bấm được → điều hướng sang tab CRM (`/admin/crm`).
+- **Card "Đánh giá TB" trên Home** giờ chỉ tính trung bình trên review CÓ chấm sao thật (bỏ qua "Góp ý riêng"
+  không sao) và bấm vào sẽ mở địa chỉ Google Maps của doanh nghiệp (`business.googleMapsLink`) ở tab mới —
+  nếu doanh nghiệp chưa khai báo link Maps thì card này không bấm được (mờ nhẹ, không có hiệu ứng nhấn).
+
+### Bổ sung thêm trong vòng 4 — Bảo mật & ổn định + UI/UX
+
+- **Helmet**: thêm `helmet` (đã khai báo trong `backend/package.json`, cần `npm install` lại ở backend)
+  vào `server.js` — bật các header bảo mật chuẩn (chống MIME sniffing, clickjacking...). Tắt
+  `contentSecurityPolicy` (API JSON thuần không cần CSP nhắm tới HTML) và mở
+  `crossOriginResourcePolicy: "cross-origin"` để ảnh tĩnh ở `/uploads` vẫn load được khi frontend
+  và backend khác domain.
+- **Giới hạn kích thước body JSON**: `express.json({ limit: "1mb" })` — chặn request payload khổng lồ.
+- **Validate & giới hạn độ dài input** cho các endpoint dễ bị lợi dụng nhất (không cần đăng nhập):
+  - `authController.js`: validate định dạng email, độ dài tên (≥2 ký tự, ≤80), độ dài mật khẩu
+    (6-72 ký tự — bcrypt chỉ dùng 72 byte đầu nên dài hơn không có ý nghĩa bảo mật thêm).
+  - `reviewController.js` (`submitReview`, `submitPrivateFeedback`): cap `feedbackText` tối đa 1000
+    ký tự, `branch` tối đa 100 ký tự, validate `businessId` đúng định dạng ObjectId (chặn kiểu tấn
+    công NoSQL injection gửi object thay vì chuỗi ID để bỏ qua điều kiện query).
+  - `leadController.js` (`submitLead`): cap độ dài `name`/`phone`/`email`/`zalo`/`branch`, validate
+    định dạng email nếu có nhập, validate `businessId`.
+  - Thêm tiện ích dùng chung `backend/utils/sanitize.js` (`capString`, `isValidEmail`, `isPlainIdString`).
+  - *(Token xác thực webhook SePay `SEPAY_WEBHOOK_TOKEN` người dùng đã tự cấu hình sẵn, không cần
+    sửa gì thêm ở phần này.)*
+- **Toast thông báo dùng chung** (`context/ToastContext.jsx`, bọc quanh toàn app trong `App.jsx`):
+  mọi hành động lưu/xóa/cập nhật quan trọng giờ có phản hồi rõ ràng thành công hay thất bại (Setup
+  Tab, liên kết mạng xã hội, xử lý góp ý ở Home lẫn trang Góp ý, cập nhật tên/chi nhánh ở Cài đặt
+  tài khoản) thay vì chỉ lặng lẽ đóng popup như trước. Lưu thất bại sẽ báo lỗi và GIỮ NGUYÊN popup
+  đang mở (không mất dữ liệu người dùng vừa nhập).
+- **Bảng màu hỗ trợ bàn phím**: `ColorPicker.jsx` giờ có `role="slider"` + điều khiển bằng phím mũi
+  tên (giữ Shift để bước nhảy lớn hơn) cho cả ô bão hòa/độ sáng và thanh trượt Hue — không còn phụ
+  thuộc hoàn toàn vào chuột/chạm.
+- **Empty state đẹp hơn**: trang CRM và trang Góp ý giờ có icon + câu gợi ý rõ ràng khi chưa có dữ
+  liệu, thay vì một dòng chữ xám đơn điệu.
+
+### Bổ sung thêm — Sửa lỗi thanh nav + hiệu ứng chuyển trang + Liquid Glass
+
+- **Sửa lỗi gốc khiến thanh nav dưới "trôi lung tung"/mất khi cuộn**: nguyên nhân là class
+  `.edge-accent-top` trong `index.css` bị set cứng `position: relative`, do đứng SAU các utility
+  của Tailwind trong file CSS nên (cùng độ đặc hiệu, luật đứng sau thắng) nó ÂM THẦM GHI ĐÈ
+  `position: fixed`/`md:fixed` thành `relative` trên cả thanh nav dưới lẫn sidebar desktop — khiến
+  nav trôi theo dòng chảy nội dung thay vì dính cố định vào viewport. Đã xóa dòng `position:
+  relative` đó (không cần thiết vì `fixed`/`sticky` trên chính phần tử đã tự tạo containing block
+  cho `::before` rồi).
+- **Hiệu ứng chuyển trang mượt hơn**: `AdminLayout.jsx` bọc `<Outlet/>` trong 1 `div` có
+  `key={location.pathname}` + class `animate-page-in` (keyframe mới trong `tailwind.config.js`) —
+  mỗi lần đổi tab (Home/Setup/CRM/Store/...), React remount khối này nên animation mờ dần + trượt
+  nhẹ lên chạy lại từ đầu, thay vì nội dung mới xuất hiện đột ngột.
+- **"Liquid Glass"** (kính mờ trong suốt kiểu Apple iOS 18) — 3 class dùng chung mới trong
+  `index.css`: `.glass-panel` (popup/modal có bo góc — viền sáng mảnh + đổ bóng + backdrop-blur),
+  `.glass-bar` (thanh dính mép màn hình — chỉ cần điểm sáng mép trên), `.glass-card` (card nổi
+  trên nền có texture). Có fallback `@supports` cho trình duyệt cũ không hỗ trợ `backdrop-filter`.
+  Áp dụng cho: thanh tab dưới cùng mobile (`AdminLayout.jsx`), toàn bộ popup dùng chung
+  (`EditPopup.jsx`), `PaymentModal.jsx`, `NfcActivationModal.jsx`, `LoyaltyForm.jsx`,
+  `PrivateFeedbackForm.jsx`, và 4 thẻ số liệu trên trang Home (`StatCard`).
+
 ## Ghi chú kỹ thuật quan trọng
 
 - **Web NFC API** chỉ hoạt động trên **Chrome for Android** qua **HTTPS**. Trên iPhone, luồng kích hoạt

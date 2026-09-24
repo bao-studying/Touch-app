@@ -50,12 +50,57 @@ export default {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(74,46,31,0.35)" },
           "50%": { boxShadow: "0 0 0 14px rgba(74,46,31,0)" },
         },
+        popIn: {
+          "0%": { opacity: "0", transform: "translateY(12px) scale(0.98)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
+        popOut: {
+          "0%": { opacity: "1", transform: "translateY(0) scale(1)" },
+          "100%": { opacity: "0", transform: "translateY(12px) scale(0.98)" },
+        },
+        fadeIn: {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        fadeOut: {
+          "0%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+        slideInRight: {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
+        slideOutRight: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(100%)" },
+        },
+        slideInUp: {
+          "0%": { transform: "translateY(100%)" },
+          "100%": { transform: "translateY(0)" },
+        },
+        slideOutUp: {
+          "0%": { transform: "translateY(0)" },
+          "100%": { transform: "translateY(100%)" },
+        },
+        pageIn: {
+          "0%": { opacity: "0", transform: "translateY(10px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         marquee: "marquee 9s linear infinite",
         orbit: "orbit 7s linear infinite",
         "bounce-soft": "bounceSoft 1.6s ease-in-out infinite",
         "fab-pulse": "fabPulse 2s ease-out infinite",
+        "pop-in": "popIn 0.22s cubic-bezier(0.16,1,0.3,1)",
+        "pop-out": "popOut 0.16s ease-in forwards",
+        "fade-in": "fadeIn 0.18s ease-out",
+        "fade-out": "fadeOut 0.16s ease-in forwards",
+        "slide-in-right": "slideInRight 0.28s cubic-bezier(0.16,1,0.3,1)",
+        "slide-out-right": "slideOutRight 0.22s cubic-bezier(0.4,0,1,1) forwards",
+        "slide-in-up": "slideInUp 0.28s cubic-bezier(0.16,1,0.3,1)",
+        "slide-out-up": "slideOutUp 0.22s cubic-bezier(0.4,0,1,1) forwards",
+        "page-in": "pageIn 0.32s cubic-bezier(0.16,1,0.3,1)",
       },
     },
   },

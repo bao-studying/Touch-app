@@ -1,13 +1,25 @@
 const Admin = require("../models/Admin");
 const generateToken = require("../utils/generateToken");
+const { capString, isValidEmail } = require("../utils/sanitize");
 
 // @desc  Đăng ký chủ doanh nghiệp mới
 // @route POST /api/auth/register
 const registerAdmin = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Vui lòng nhập đầy đủ tên, email và mật khẩu" });
+    const name = capString(req.body.name, 80);
+    const email = capString(req.body.email, 254).toLowerCase();
+    const password = typeof req.body.password === "string" ? req.body.password : "";
+
+    if (!name || name.length < 2) {
+      return res.status(400).json({ message: "Vui lòng nhập tên đầy đủ (ít nhất 2 ký tự)" });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+    // bcrypt chỉ dùng tối đa 72 byte đầu của mật khẩu, mật khẩu dài hơn không giúp an toàn hơn
+    // mà chỉ gây tốn tài nguyên khi hash — giới hạn hợp lý để tránh payload bất thường.
+    if (password.length < 6 || password.length > 72) {
+      return res.status(400).json({ message: "Mật khẩu phải từ 6 đến 72 ký tự" });
     }
 
     const existing = await Admin.findOne({ email });
@@ -32,7 +44,12 @@ const registerAdmin = async (req, res) => {
 // @route POST /api/auth/login
 const loginAdmin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const email = capString(req.body.email, 254).toLowerCase();
+    const password = typeof req.body.password === "string" ? req.body.password : "";
+    if (!email || !password) {
+      return res.status(400).json({ message: "Vui lòng nhập email và mật khẩu" });
+    }
+
     const admin = await Admin.findOne({ email });
 
     if (admin && (await admin.matchPassword(password))) {
@@ -60,7 +77,13 @@ const getMe = async (req, res) => {
 // @route PUT /api/auth/me
 const updateProfile = async (req, res) => {
   const admin = await Admin.findById(req.admin._id);
-  if (req.body.name) admin.name = req.body.name;
+  if (req.body.name !== undefined) {
+    const name = capString(req.body.name, 80);
+    if (!name || name.length < 2) {
+      return res.status(400).json({ message: "Tên hiển thị phải có ít nhất 2 ký tự" });
+    }
+    admin.name = name;
+  }
   await admin.save();
   res.json({ _id: admin._id, name: admin.name, email: admin.email });
 };
@@ -68,9 +91,10 @@ const updateProfile = async (req, res) => {
 // @desc  Đổi mật khẩu (trang Cài đặt tài khoản)
 // @route PUT /api/auth/me/password
 const updatePassword = async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-  if (!currentPassword || !newPassword || newPassword.length < 6) {
-    return res.status(400).json({ message: "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới (tối thiểu 6 ký tự)" });
+  const currentPassword = typeof req.body.currentPassword === "string" ? req.body.currentPassword : "";
+  const newPassword = typeof req.body.newPassword === "string" ? req.body.newPassword : "";
+  if (!currentPassword || newPassword.length < 6 || newPassword.length > 72) {
+    return res.status(400).json({ message: "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới (6-72 ký tự)" });
   }
 
   const admin = await Admin.findById(req.admin._id);

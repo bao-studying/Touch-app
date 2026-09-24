@@ -27,7 +27,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-cream-50 px-5">
+    <div className="min-h-screen flex items-center justify-center bg-app-surface-soft px-5">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm ring-1 ring-espresso-900/5 p-6 text-center">
         <span className="w-14 h-14 mx-auto rounded-2xl bg-amber-400/20 text-amber-600 flex items-center justify-center mb-4">
           <Store size={26} />

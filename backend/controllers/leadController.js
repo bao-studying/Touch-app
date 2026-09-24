@@ -2,14 +2,24 @@ const Lead = require("../models/Lead");
 const Business = require("../models/Business");
 const { getPlanLimits } = require("../config/planLimits");
 const { ensureActivePlan } = require("../utils/planGate");
+const { capString, isValidEmail, isPlainIdString } = require("../utils/sanitize");
 
 // @desc  Khách đăng ký Khách hàng thân thiết (public) — CHẶN nếu gói chưa mở Loyalty (Free)
 // @route POST /api/leads/public
 const submitLead = async (req, res) => {
   try {
-    const { businessId, name, phone, email, zalo, dob, branch } = req.body;
-    if (!businessId || !name) {
+    const { businessId, dob } = req.body;
+    const name = capString(req.body.name, 100);
+    const phone = capString(req.body.phone, 20);
+    const email = capString(req.body.email, 254);
+    const zalo = capString(req.body.zalo, 20);
+    const branch = capString(req.body.branch, 100);
+
+    if (!isPlainIdString(businessId) || !name) {
       return res.status(400).json({ message: "Thiếu thông tin doanh nghiệp hoặc tên khách hàng" });
+    }
+    if (email && !isValidEmail(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
     }
     const business = await Business.findById(businessId);
     if (!business) return res.status(404).json({ message: "Không tìm thấy doanh nghiệp" });
@@ -22,11 +32,11 @@ const submitLead = async (req, res) => {
     const lead = await Lead.create({
       business: businessId,
       name,
-      phone: phone || "",
-      email: email || "",
-      zalo: zalo || "",
+      phone,
+      email,
+      zalo,
       dob: dob || undefined,
-      branch: branch || "",
+      branch,
     });
 
     res.status(201).json(lead);

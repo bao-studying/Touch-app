@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import EditPopup from "./EditPopup";
+import ColorPicker from "../../common/ColorPicker";
 
 const PRESET_COLORS = ["#4A2E1F", "#B8562F", "#0068FF", "#1877F2", "#71886A", "#A5711F", "#2A1810", "#EE4D2D"];
 const BUTTON_STYLES = [
@@ -40,8 +41,8 @@ export default function ThemeEditPopup({ theme, onClose, onSave }) {
     >
       <p className="text-[11px] text-espresso-700/50 mb-4">Chỉ áp dụng cho trang khách hàng nhìn thấy, không ảnh hưởng Admin Dashboard.</p>
 
-      <p className="text-xs text-espresso-700/60 mb-2">Gam màu chủ đạo</p>
-      <div className="flex flex-wrap gap-2 mb-3">
+      <p className="text-xs text-espresso-700/60 mb-2">Màu gợi ý nhanh</p>
+      <div className="flex flex-wrap gap-2 mb-4">
         {PRESET_COLORS.map((c) => (
           <button
             key={c}
@@ -52,12 +53,11 @@ export default function ThemeEditPopup({ theme, onClose, onSave }) {
           />
         ))}
       </div>
-      <input
-        type="color"
-        value={primaryColor}
-        onChange={(e) => setPrimaryColor(e.target.value)}
-        className="w-full h-10 rounded-xl border border-espresso-900/15 mb-5"
-      />
+
+      <p className="text-xs text-espresso-700/60 mb-2">Bảng màu chi tiết — kéo để chọn màu chính xác hơn</p>
+      <div className="mb-5">
+        <ColorPicker value={primaryColor} onChange={setPrimaryColor} />
+      </div>
 
       <p className="text-xs text-espresso-700/60 mb-2">Kiểu nút bấm</p>
       <div className="grid grid-cols-2 gap-2">
